@@ -2,7 +2,7 @@
 
 Web para que cada profesor/a monte el plano de su aula, siente al alumnado y lo imprima en una hoja con el formato del colegio. Inspirada en [AulaMap](https://aulamap.github.io), pero escrita desde cero con la estética de las utilidades del colegio.
 
-- **Alumnado ya cargado:** usa las clases y listas del curso actual de *Control de baños* (mismo proyecto de Supabase). Si cambian las listas allí, cambian aquí.
+- **Alumnado ya cargado:** ESO y Bachillerato salen de *Control de baños* (mismo proyecto de Supabase; si cambian las listas allí, cambian aquí). Primaria, que no está en Control de baños, va en tablas propias (`aul_clases`, `aul_alumnos`).
 - **Distribuciones:** cada persona tiene las suyas por clase (varias propuestas por clase). Se guardan solas. Se pueden **duplicar** y **compartir con el claustro** (el resto las ve e imprime, y puede hacerse una copia, pero no cambiar la tuya).
 - **Alumnado:** arrastrar a una mesa (o tocar el nombre y después la mesa), intercambiar, sentar por lista o al azar, **fijar** a alguien en su sitio, parejas que **no deben sentarse juntas**, quitar a quien no está en el grupo y **añadir alumnado de otra clase** (desdobles, optativas).
 - **Aula:** medidas reales, plantillas (filas, parejas, grupos de 4 y 6, en U, examen), bloque de mesas, mobiliario, girar, alinear, repartir, deshacer. Vista desde el fondo o desde la mesa del docente.
@@ -14,7 +14,8 @@ Abre la web con `?demo` al final (por ejemplo `https://…vercel.app/?demo`): al
 
 ## Puesta en marcha (una vez)
 
-1. **Tabla de distribuciones:** en Supabase (proyecto «Acceso Microsoft 365», el de Control de baños) → *SQL Editor*, pega y ejecuta `supabase/planos.sql`. Solo crea la tabla `aul_planos`; no toca nada de Control de baños. Mientras no se haga, la web avisa y guarda en el navegador.
+1. **Tabla de distribuciones:** en Supabase (proyecto «Acceso Microsoft 365», el de Control de baños) → *SQL Editor*, pega y ejecuta `supabase/planos.sql`. Solo crea las tablas `aul_planos`, `aul_clases` y `aul_alumnos`; no toca nada de Control de baños. Mientras no se haga, la web avisa y guarda en el navegador.
+   Después ejecuta `supabase/primaria-datos.sql` (alumnado de Primaria; este archivo tiene nombres reales y no se sube a GitHub). Para un curso nuevo, se vuelve a generar desde los PDF de Séneca.
 2. **GitHub:** sube el contenido de esta carpeta a un repositorio nuevo (por ejemplo `distribucion-aula`).
 3. **Vercel:** *Add New → Project*, importa el repositorio y pulsa *Deploy* (no hay que compilar nada).
 4. **Acceso con Microsoft 365:** en Supabase → *Authentication → URL Configuration → Redirect URLs*, añade la dirección de Vercel (por ejemplo `https://distribucion-aula.vercel.app/**`). Sin esto, al entrar vuelve a la web de Control de baños.

@@ -193,6 +193,16 @@
         const d = ok(await sb.from("alumnos").select("id,clase_id,nombre,orden").eq("activo", true).in("clase_id", ids).order("id").range(i, i + 999));
         alumnos.push(...d); if (d.length < 1000) break;
       }
+      // Primaria (y otras etapas que no usa Control de baños): tablas propias de esta web
+      try {
+        const extra = ok(await sb.from("aul_clases").select("id,etapa,nombre,tutor,orden").eq("curso_id", curso.id).order("orden"));
+        const eids = extra.map((c) => c.id);
+        for (let i = 0; eids.length; i += 1000) {
+          const d = ok(await sb.from("aul_alumnos").select("id,clase_id,nombre,orden").eq("activo", true).in("clase_id", eids).order("id").range(i, i + 999));
+          alumnos.push(...d); if (d.length < 1000) break;
+        }
+        clases.push(...extra);
+      } catch (e) { console.warn("Sin tablas de Primaria todavía", e); }
       return { curso, clases, alumnos };
     },
     async planos(cursoId) { return ok(await sb.from(TABLA).select("*").eq("curso_id", cursoId).order("actualizado", { ascending: false })); },
@@ -225,7 +235,7 @@
     const NOM = ["Lucía", "Hugo", "Martina", "Pablo", "Sofía", "Daniel", "Julia", "Álvaro", "Paula", "Mario", "Valeria", "Manuel", "Carmen", "Javier", "Noa", "Adrián", "Alba", "David", "Claudia", "Marcos", "Irene", "Diego", "Rocío", "Jesús", "Lola", "Gonzalo", "María José", "Juan Manuel", "Elena", "Rafael"];
     const AP = ["García", "Rodríguez", "Fernández", "López", "Martínez", "Sánchez", "Pérez", "Gómez", "Ruiz", "Díaz", "Moreno", "Muñoz", "Romero", "Navarro", "Torres", "Domínguez", "Vázquez", "Ramos", "Gil", "Serrano", "Molina", "de la Rosa", "Castillo", "Ortega", "Delgado", "Marín", "Cano", "Prieto"];
     let s = 11; const azar = () => (s = (s * 16807) % 2147483647) / 2147483647, uno = (a) => a[Math.floor(azar() * a.length)];
-    const grupos = ["1º ESO A", "1º ESO B", "2º ESO A", "2º ESO B", "3º ESO A", "4º ESO A", "1º Bach A", "2º Bach A"];
+    const grupos = ["1º Primaria A", "4º Primaria B", "1º ESO A", "1º ESO B", "2º ESO A", "2º ESO B", "3º ESO A", "4º ESO A", "1º Bach A", "2º Bach A"];
     const clases = [], alumnos = []; let id = 1;
     grupos.forEach((g, i) => {
       clases.push({ id: i + 1, nombre: g, tutor: `${uno(AP)} ${uno(AP)}, ${uno(NOM)}`, orden: i });
@@ -816,10 +826,12 @@
   }
 
   // ─── Clases y distribuciones ──────────────────────────────────────────────
-  const etapa = (n) => (/bach/i.test(n) ? "Bachillerato" : /eso/i.test(n) ? "ESO" : "Otros grupos");
+  const ETAPAS = ["Infantil", "Primaria", "ESO", "Bachillerato", "Otros grupos"];
+  const etapa = (c) => c.etapa || (/infantil/i.test(c.nombre) ? "Infantil" : /prim/i.test(c.nombre) ? "Primaria" : /bach/i.test(c.nombre) ? "Bachillerato" : /eso/i.test(c.nombre) ? "ESO" : "Otros grupos");
   function pintarClases() {
-    const grupos = new Map();
-    for (const c of S.clases) { const e = etapa(c.nombre); if (!grupos.has(e)) grupos.set(e, []); grupos.get(e).push(c); }
+    const grupos = new Map(ETAPAS.map((e) => [e, []]));
+    for (const c of S.clases) { const e = etapa(c); if (!grupos.has(e)) grupos.set(e, []); grupos.get(e).push(c); }
+    for (const [e, cs] of grupos) if (!cs.length) grupos.delete(e);
     $("#selClase").innerHTML = [...grupos].map(([e, cs]) => `<optgroup label="${e}">${cs.map((c) => `<option value="${c.id}">${esc(c.nombre)}</option>`).join("")}</optgroup>`).join("");
   }
   const planosClase = () => S.planos.filter((p) => p.clase_id == S.claseId)
