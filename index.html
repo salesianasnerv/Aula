@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Distribución del aula | Escuelas Salesianas María Auxiliadora · Nervión (Sevilla)</title>
+  <meta name="description" content="Planos de clase: monta el aula, sienta al alumnado e imprime la distribución.">
+  <meta name="theme-color" content="#009abb">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+  <link rel="icon" type="image/png" sizes="48x48" href="favicon-48.png">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="es_ES">
+  <meta property="og:site_name" content="Escuelas Salesianas María Auxiliadora">
+  <meta property="og:title" content="Distribución del aula | Escuelas Salesianas María Auxiliadora · Nervión (Sevilla)">
+  <meta property="og:description" content="Planos de clase: monta el aula, sienta al alumnado e imprime la distribución.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <style id="estiloPagina"></style>
+</head>
+<body>
+  <header class="top">
+    <div class="marca"><img class="logo" src="logo.svg" alt="Salesianas Nervión"><h1>Distribución del aula</h1></div>
+    <div class="usuario" id="usuario"></div>
+  </header>
+
+  <div id="demoAviso" class="demo" hidden>
+    <strong>Modo prueba:</strong> alumnado ficticio; las distribuciones se guardan solo en este navegador.
+  </div>
+  <div id="localAviso" class="demo" hidden>
+    <strong>Aviso:</strong> falta crear la tabla de distribuciones en Supabase (<code>supabase/planos.sql</code>). Mientras tanto, se guardan solo en este navegador.
+  </div>
+
+  <main>
+    <!-- Acceso -->
+    <section id="vLogin" class="login" hidden>
+      <div class="tarjeta">
+        <img class="logo" src="logo.svg" alt="Salesianas Nervión">
+        <span class="eyebrow" data-curso>Curso 2026-2027</span><script>/* Curso escolar: cambia solo cada 1 de septiembre */document.querySelectorAll("[data-curso]").forEach(function(e){var d=new Date(),y=d.getFullYear()-(d.getMonth()<8?1:0);e.textContent="Curso "+y+"-"+(y+1);});</script>
+        <h1>Distribución del aula</h1>
+        <p>Pulsa el botón y entra con tu cuenta del colegio <strong>@salesianas.org</strong>.</p>
+        <button id="btnLogin" class="btn primario grande btn-ms" type="button">
+          <svg viewBox="0 0 21 21" width="20" height="20" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
+          Entrar con Microsoft 365
+        </button>
+        <p id="loginError" class="error"></p>
+      </div>
+    </section>
+
+    <section id="vCargando" class="vacio">Cargando…</section>
+
+    <!-- Editor -->
+    <section id="vEditor" hidden>
+      <div class="barra-sup">
+        <label class="campo">Clase <select id="selClase"></select></label>
+        <label class="campo crece">Distribución <select id="selPlano"></select></label>
+        <div class="grupo-btn">
+          <button class="btn primario" id="btnNuevo" type="button">+ Nueva</button>
+          <button class="btn" id="btnDuplicar" type="button">Duplicar</button>
+          <button class="btn" id="btnRenombrar" type="button">Cambiar nombre</button>
+          <button class="btn" id="btnCompartir" type="button" title="Que el resto del claustro pueda verla y copiarla">Compartir</button>
+          <button class="btn peligro" id="btnEliminar" type="button">Eliminar</button>
+        </div>
+        <span id="estado" class="estado"></span>
+        <button class="btn aviso" id="btnImprimir" type="button">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M7 9V3h10v6M7 17H4v-7a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v7h-3M7 14h10v7H7z"/></svg>
+          Imprimir
+        </button>
+      </div>
+
+      <div id="sinPlano" class="caja vacio-grande" hidden>
+        <h2>Esta clase todavía no tiene ninguna distribución tuya</h2>
+        <p>Crea una a partir de una plantilla (filas, parejas, grupos, en U…) y después ajústala a tu gusto.</p>
+        <button class="btn primario" id="btnNuevo2" type="button">+ Crear distribución</button>
+      </div>
+
+      <div id="soloLectura" class="aviso-lectura" hidden></div>
+
+      <div class="editor" id="editor" hidden>
+        <aside class="panel">
+          <div class="pestanas" role="tablist">
+            <button data-modo="alumnado" class="activa" type="button" role="tab">Alumnado</button>
+            <button data-modo="aula" type="button" role="tab">Aula y mesas</button>
+          </div>
+
+          <!-- Alumnado -->
+          <div data-panel="alumnado" id="panelAlumnado">
+            <div class="cuenta" id="cuenta"></div>
+            <div class="grupo-btn">
+              <button class="btn mini" id="btnOrden" type="button" title="Por orden de lista, de delante hacia atrás">Sentar por lista</button>
+              <button class="btn mini" id="btnAzar" type="button" title="Respeta a quien está fijado y las parejas que no deben coincidir">Sentar al azar</button>
+              <button class="btn mini" id="btnLevantar" type="button">Levantar a todos</button>
+            </div>
+            <div class="grupo-btn">
+              <button class="btn mini" id="btnNoJuntos" type="button">No deben sentarse juntos…</button>
+              <button class="btn mini" id="btnOtraClase" type="button">Añadir de otra clase…</button>
+            </div>
+            <label class="campo">Nombre que se ve
+              <select id="selNombre">
+                <option value="n1">Nombre y primer apellido</option>
+                <option value="ni">Nombre e inicial del apellido</option>
+                <option value="n">Solo el nombre</option>
+                <option value="c">Nombre y apellidos</option>
+              </select>
+            </label>
+            <p class="ayuda">Arrastra cada nombre a una mesa, o tócalo y después toca la mesa. Entre dos mesas se cambian de sitio; a la lista, quedan sin sitio.</p>
+            <h3>Sin sitio <span id="nSin"></span></h3>
+            <div id="listaSin" class="lista-al zona-lista"></div>
+            <h3>Con sitio <span id="nCon"></span></h3>
+            <div id="listaCon" class="lista-al zona-lista"></div>
+            <details id="detFuera" hidden>
+              <summary>No están en este grupo <span id="nFuera"></span></summary>
+              <div id="listaFuera" class="lista-al"></div>
+            </details>
+          </div>
+
+          <!-- Aula -->
+          <div data-panel="aula" hidden>
+            <div class="fila medidas">
+              <label class="campo">Ancho (m) <input id="inAncho" type="number" min="3" max="30" step="0.1"></label>
+              <label class="campo">Fondo (m) <input id="inFondo" type="number" min="3" max="30" step="0.1"></label>
+            </div>
+            <h3>Mesas del alumnado</h3>
+            <div class="paleta" id="paletaMesas"></div>
+            <div class="grupo-btn">
+              <button class="btn mini" id="btnBloque" type="button">Bloque de mesas…</button>
+              <button class="btn mini" id="btnPlantilla" type="button">Cambiar por plantilla…</button>
+            </div>
+            <h3>Mobiliario</h3>
+            <div class="paleta" id="paletaMuebles"></div>
+            <div id="props" class="props"></div>
+            <p class="ayuda">Arrastra para mover; con Mayús, o arrastrando en una zona vacía, seleccionas varios. Teclas: <kbd>R</kbd> girar, <kbd>Supr</kbd> eliminar, flechas para ajustar, <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicar, <kbd>Ctrl</kbd>+<kbd>Z</kbd> deshacer.</p>
+          </div>
+        </aside>
+
+        <div class="lienzo-wrap">
+          <div class="lienzo-barra">
+            <button class="btn mini icono" id="btnDeshacer" type="button" title="Deshacer (Ctrl+Z)" aria-label="Deshacer">↶</button>
+            <button class="btn mini icono" id="btnRehacer" type="button" title="Rehacer (Ctrl+Y)" aria-label="Rehacer">↷</button>
+            <span class="sep"></span>
+            <button class="btn mini icono" id="btnMenos" type="button" aria-label="Alejar">−</button>
+            <button class="btn mini" id="btnAjustar" type="button">Ajustar</button>
+            <button class="btn mini icono" id="btnMas" type="button" aria-label="Acercar">+</button>
+            <span class="sep"></span>
+            <button class="btn mini" id="btnVista" type="button" title="Girar el plano para verlo desde la mesa del docente"></button>
+            <span class="puestos" id="puestos"></span>
+          </div>
+          <div class="lienzo" id="lienzo"><svg id="plano" xmlns="http://www.w3.org/2000/svg"></svg></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="pie">Escuelas Salesianas María Auxiliadora · Nervión (Sevilla)</footer>
+
+  <!-- Hoja que se imprime (se rellena al pulsar «Imprimir») -->
+  <div id="impresion"></div>
+
+  <dialog id="dlg"><form method="dialog" id="dlgForm"></form></dialog>
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="config.js"></script>
+  <script src="data/demo-data.js" onerror="window.DEMO_DATA=null"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
