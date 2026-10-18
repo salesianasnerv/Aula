@@ -1,0 +1,30 @@
+// Permite instalar Distribución del aula como app.
+// El alumnado y las distribuciones se piden siempre a Supabase; aquí solo se guarda la web.
+// Si cambias la lista de archivos, sube también el número de VERSION.
+const VERSION = 'v1';
+const CACHE = `aula-${VERSION}`;
+const CARCASA = ['./', 'index.html', 'styles.css', 'app.js', 'config.js', 'manifest.json', 'logo.svg',
+  'favicon-32.png', 'favicon-48.png', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'];
+
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => Promise.allSettled(CARCASA.map(u => c.add(u)))));
+  self.skipWaiting();
+});
+
+// Solo borra cachés propias (otras webs del colegio pueden compartir origen)
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith('aula-') && k !== CACHE).map(k => caches.delete(k)))));
+  self.clients.claim();
+});
+
+// Red primero (así los cambios publicados se ven enseguida); sin conexión, lo guardado.
+self.addEventListener('fetch', e => {
+  const req = e.request;
+  if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
+  e.respondWith(
+    fetch(req).then(res => {
+      if (res.ok) { const copia = res.clone(); caches.open(CACHE).then(c => c.put(req, copia)); }
+      return res;
+    }).catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || caches.match('index.html')))
+  );
+});

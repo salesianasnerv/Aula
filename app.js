@@ -18,11 +18,14 @@
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* sin almacenamiento */ } },
   };
   function barajar(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
-  function toast(msg) {
-    const t = $("#toast"); t.textContent = msg; t.hidden = false;
-    clearTimeout(toast._t); toast._t = setTimeout(() => (t.hidden = true), 2800);
+  function toast(msg, tipo = "ok", ms = 3500) {
+    const el = document.createElement("div");
+    el.className = "toast" + (tipo === "error" ? " error" : "");
+    el.textContent = msg;
+    $("#toasts").appendChild(el);
+    setTimeout(() => el.remove(), ms);
   }
-  function fallo(e) { console.error(e); toast("Error: " + (e.message || e)); }
+  function fallo(e) { console.error(e); toast("Error: " + (e.message || e), "error", 7000); }
 
   // ─── Nombres ("Apellidos, Nombre") ─────────────────────────────────────────
   const PARTICULAS = new Set(["de", "del", "la", "las", "los", "y", "san", "da", "do", "dos", "van", "von"]);
@@ -173,7 +176,7 @@
       const { data: { session } } = await sb.auth.getSession();
       if (!session) return null;
       const u = session.user, email = (u.email || "").toLowerCase();
-      if (!email.endsWith("@" + CFG.dominio)) {
+      if (![CFG.dominio, ...(CFG.dominiosExtra || [])].some((d) => email.endsWith("@" + d))) {
         await sb.auth.signOut();
         throw new Error(`Solo se permite el acceso con cuentas @${CFG.dominio}.`);
       }
@@ -249,7 +252,7 @@
   // ─── Diálogos ────────────────────────────────────────────────────────────
   function dialogo(html, { aceptar = "Aceptar", cancelar = "Cancelar", peligro = false, alAbrir } = {}) {
     const dlg = $("#dlg"), f = $("#dlgForm");
-    f.innerHTML = html + `<div class="dlg-botones">${cancelar ? `<button class="btn" value="no" formnovalidate>${cancelar}</button>` : ""}<button class="btn ${peligro ? "aviso" : "primario"}" value="si">${aceptar}</button></div>`;
+    f.innerHTML = html + `<div class="dlg-botones">${cancelar ? `<button class="btn" value="no" formnovalidate>${cancelar}</button>` : ""}<button class="btn ${peligro ? "borrar" : "primario"}" value="si">${aceptar}</button></div>`;
     return new Promise((res) => {
       dlg.onclose = () => res(dlg.returnValue === "si" ? new FormData(f) : null);
       dlg.returnValue = "";
@@ -933,7 +936,7 @@
         <div class="imp-tit"><span class="imp-eyebrow">Curso ${esc(S.cursoNombre)}</span><h1>${esc(o.titulo || "Distribución del aula")}</h1><p>${esc(o.sub)}</p></div>
         <div class="imp-meta">${meta}</div>
       </header>
-      <div class="franja"><i></i><i></i><i></i></div>
+      <div class="imp-franja"><i></i><i></i><i></i></div>
       <div class="imp-cuerpo">
         <div class="imp-plano"><svg viewBox="${vb}" xmlns="http://www.w3.org/2000/svg" font-family="Fira Sans, sans-serif">${html}</svg>
           <div class="imp-vista">${o.vista === "docente" ? "Vista desde la mesa del docente (la pizarra queda abajo)" : "Vista desde el fondo del aula (la pizarra queda arriba)"}</div></div>
@@ -1004,6 +1007,27 @@
     }
   }
 
+  // ─── Instalar como app (PWA) y aviso sin conexión ─────────────────────────
+  (function instalar() {
+    const b = $("#instalar");
+    if (matchMedia("(display-mode: standalone)").matches || navigator.standalone) return;
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    let aviso = null;
+    if (ios) b.hidden = false;
+    addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); aviso = e; b.hidden = false; });
+    addEventListener("appinstalled", () => { b.hidden = true; });
+    b.onclick = async () => {
+      if (aviso) { aviso.prompt(); try { await aviso.userChoice; } catch {} aviso = null; b.hidden = true; return; }
+      dialogo(`<h2>Instalar la app</h2><ol class="pasos">
+        <li>Pulsa el botón <b>Compartir</b> de Safari (el cuadrado con una flecha hacia arriba).</li>
+        <li>Elige <b>«Añadir a pantalla de inicio»</b>.</li>
+        <li>Pulsa <b>Añadir</b>. Aparecerá el icono del colegio en tu pantalla.</li></ol>`, { aceptar: "Entendido", cancelar: null });
+    };
+  })();
+  const conexion = () => ($("#offline").hidden = navigator.onLine);
+  addEventListener("online", conexion); addEventListener("offline", conexion); conexion();
+  if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+
   // ─── Arranque ─────────────────────────────────────────────────────────────
   async function iniciar() {
     $("#demoAviso").hidden = !DEMO;
@@ -1012,10 +1036,12 @@
       S.user = DEMO ? { email: "prueba@" + CFG.dominio, nombre: "Modo prueba" } : await remoto.sesion();
     } catch (e) { $("#loginError").textContent = e.message; }
     $("#vCargando").hidden = true;
-    if (!S.user) { document.body.classList.add("sin-sesion"); $("#vLogin").hidden = false; return; }
+    if (!S.user) { $("#vLogin").hidden = false; $("#btnAcceso").hidden = false; return; }
 
-    $("#usuario").innerHTML = `<span>${esc(S.user.nombre)}</span>` + (DEMO ? "" : `<a href="#" id="btnSalir">Salir</a>`);
-    $("#btnSalir")?.addEventListener("click", (e) => { e.preventDefault(); remoto.logout(); });
+    $("#usuario").textContent = S.user.nombre;
+    $("#sesion").hidden = false;
+    $("#btnSalir").hidden = DEMO;
+    $("#btnSalir").onclick = () => remoto.logout();
 
     $("#vCargando").hidden = false;
     let datos;

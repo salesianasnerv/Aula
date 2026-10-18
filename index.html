@@ -5,16 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Distribución del aula | Escuelas Salesianas María Auxiliadora · Nervión (Sevilla)</title>
   <meta name="description" content="Planos de clase: monta el aula, sienta al alumnado e imprime la distribución.">
-  <meta name="theme-color" content="#009abb">
+  <meta name="theme-color" content="#b4be00">
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
   <link rel="icon" type="image/png" sizes="48x48" href="favicon-48.png">
   <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Aula">
+  <meta name="application-name" content="Aula">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="es_ES">
   <meta property="og:site_name" content="Escuelas Salesianas María Auxiliadora">
   <meta property="og:title" content="Distribución del aula | Escuelas Salesianas María Auxiliadora · Nervión (Sevilla)">
   <meta property="og:description" content="Planos de clase: monta el aula, sienta al alumnado e imprime la distribución.">
+  <meta property="og:url" content="https://aula-nervion.vercel.app/">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
@@ -23,9 +31,62 @@
 </head>
 <body>
   <header class="top">
-    <div class="marca"><img class="logo" src="logo.svg" alt="Salesianas Nervión"><h1>Distribución del aula</h1></div>
-    <div class="usuario" id="usuario"></div>
+    <a href="./"><img class="logo" src="logo.svg" alt="Salesianas Nervión"></a>
   </header>
+  <div class="franja">
+    <span class="quien" data-curso>Curso 2026-2027</span>
+    <div class="franja-acc">
+      <button type="button" class="franja-btn" id="instalar" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Instalar como app</button>
+      <a class="franja-btn" href="#acceso" id="btnAcceso" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Acceso profesorado</a>
+    </div>
+  </div>
+  <script>/* Curso escolar: cambia solo cada 1 de septiembre */document.querySelectorAll("[data-curso]").forEach(function(e){var d=new Date(),y=d.getFullYear()-(d.getMonth()<8?1:0);e.textContent="Curso "+y+"-"+(y+1);});</script>
+  <div class="sesion" id="sesion" hidden>
+    <span class="sesion-nombre"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg><span id="usuario"></span></span>
+    <button type="button" class="sesion-salir" id="btnSalir" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4"/></svg>Salir</button>
+  </div>
+
+  <div class="offline" id="offline" hidden>Sin conexión: los cambios no se guardarán hasta que vuelva internet.</div>
+
+  <section class="presenta">
+    <div class="presenta-sup">
+      <div class="cartel" role="navigation" aria-label="Estás en"><a href="https://claustro-utilidades.vercel.app/" title="Ir al portal de utilidades del profesorado"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7M5 10v10h14V10"/></svg>Utilidades</a><span class="sep" aria-hidden="true">|</span><a href="https://claustro-utilidades.vercel.app/#apEtapas" title="Ir al apartado «Por etapa» del portal">Por etapas</a></div>
+      <div class="etqs"><span class="etq">Primaria</span><span class="etq">ESO</span><span class="etq">Bachillerato</span></div>
+    </div>
+    <div class="presenta-cab">
+      <span class="presenta-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 7h4v3H7zM13 7h4v3h-4zM7 14h4v3H7zM13 14h4v3h-4z"/></svg></span>
+      <div>
+        <h1>Distribución del aula</h1>
+        <p>Monta el plano de tu aula con sus medidas reales, sienta al alumnado de cada clase e imprime la distribución en una hoja con el formato del colegio.</p>
+      </div>
+    </div>
+    <div class="presenta-info">
+      <details class="info-bloque">
+        <summary><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c1.9.7 3.1 2.4 3.5 5.2"/></svg><span>Profesorado <em class="aviso-etq">Solo cuentas autorizadas</em> <small>Acceso: inicio de sesión con Microsoft 365 (@salesianas.org)</small></span></summary>
+        <ul>
+          <li><b>Distribuciones:</b> las tuyas de cada clase, con varias propuestas por clase. Se guardan solas.</li>
+          <li><b>Alumnado:</b> sentar por lista o al azar, fijar a alguien en su sitio, parejas que no deben sentarse juntas y alumnado de otra clase (desdobles, optativas).</li>
+          <li><b>Aula:</b> medidas, plantillas (filas, parejas, grupos, en U, examen) y mobiliario.</li>
+          <li><b>Compartir e imprimir:</b> compartir con el claustro, copiar las de otros e imprimir en una hoja A4.</li>
+        </ul>
+      </details>
+      <details class="info-bloque">
+        <summary><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg><span>Tutores <em class="aviso-etq">Solo cuentas autorizadas</em> <small>Acceso: inicio de sesión con Microsoft 365 (@salesianas.org)</small></span></summary>
+        <ul>
+          <li><b>Todo lo del profesorado.</b></li>
+          <li><b>Tu tutoría:</b> las distribuciones que el equipo docente comparte de tu grupo, para tenerlas a mano y copiarlas.</li>
+          <li><b>Hoja de la tutoría:</b> tu nombre aparece como tutor/a en la hoja impresa de la clase.</li>
+        </ul>
+      </details>
+      <details class="info-bloque">
+        <summary><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span>Administración <em class="aviso-etq">Solo cuentas autorizadas</em> <small>Acceso: inicio de sesión con Microsoft 365 (@salesianas.org)</small></span></summary>
+        <ul>
+          <li><b>Alumnado de Primaria:</b> clases, tutor/a y listas de cada curso (ESO y Bachillerato se gestionan en Control de baños).</li>
+          <li><b>Curso y cuentas:</b> se usan el curso activo y las cuentas de administración de Control de baños.</li>
+        </ul>
+      </details>
+    </div>
+  </section>
 
   <div id="demoAviso" class="demo" hidden>
     <strong>Modo prueba:</strong> alumnado ficticio; las distribuciones se guardan solo en este navegador.
@@ -37,10 +98,8 @@
   <main>
     <!-- Acceso -->
     <section id="vLogin" class="login" hidden>
-      <div class="tarjeta">
-        <img class="logo" src="logo.svg" alt="Salesianas Nervión">
-        <span class="eyebrow" data-curso>Curso 2026-2027</span><script>/* Curso escolar: cambia solo cada 1 de septiembre */document.querySelectorAll("[data-curso]").forEach(function(e){var d=new Date(),y=d.getFullYear()-(d.getMonth()<8?1:0);e.textContent="Curso "+y+"-"+(y+1);});</script>
-        <h1>Distribución del aula</h1>
+      <div class="tarjeta" id="acceso">
+        <h2>Acceso del profesorado</h2>
         <p>Pulsa el botón y entra con tu cuenta del colegio <strong>@salesianas.org</strong>.</p>
         <button id="btnLogin" class="btn primario grande btn-ms" type="button">
           <svg viewBox="0 0 21 21" width="20" height="20" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
@@ -65,7 +124,7 @@
           <button class="btn peligro" id="btnEliminar" type="button">Eliminar</button>
         </div>
         <span id="estado" class="estado"></span>
-        <button class="btn aviso" id="btnImprimir" type="button">
+        <button class="btn pri" id="btnImprimir" type="button">
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M7 9V3h10v6M7 17H4v-7a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v7h-3M7 14h10v7H7z"/></svg>
           Imprimir
         </button>
@@ -160,7 +219,7 @@
   <div id="impresion"></div>
 
   <dialog id="dlg"><form method="dialog" id="dlgForm"></form></dialog>
-  <div id="toast" class="toast" hidden></div>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
 
   <script src="config.js"></script>
   <script src="data/demo-data.js" onerror="window.DEMO_DATA=null"></script>
