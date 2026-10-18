@@ -1,5 +1,5 @@
 // ─── Configuración de Distribución del aula ───────────────────────────────────
-// Usa el mismo proyecto de Supabase que Control de baños (alumnado y acceso con Microsoft 365).
+// Usa la base de datos común del colegio en Supabase (alumnado de todas las etapas y acceso con Microsoft 365).
 // Si supabaseUrl está vacío, o se abre la web con ?demo al final de la dirección, funciona en
 // MODO PRUEBA: alumnado ficticio y distribuciones guardadas solo en este navegador.
 window.APP_CONFIG = {

@@ -65,8 +65,9 @@
         <summary><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c1.9.7 3.1 2.4 3.5 5.2"/></svg><span>Profesorado <em class="aviso-etq">Solo cuentas autorizadas</em> <small>Acceso: inicio de sesión con Microsoft 365 (@salesianas.org)</small></span></summary>
         <ul>
           <li><b>Distribuciones:</b> las tuyas de cada clase, con varias propuestas por clase. Se guardan solas.</li>
-          <li><b>Alumnado:</b> sentar por lista o al azar, fijar a alguien en su sitio, parejas que no deben sentarse juntas y alumnado de otra clase (desdobles, optativas).</li>
-          <li><b>Aula:</b> medidas, plantillas (filas, parejas, grupos, en U, examen) y mobiliario.</li>
+          <li><b>Alumnado:</b> sentar por lista, al azar, por niveles o equilibrado, fijar a alguien en su sitio, parejas que no deben sentarse juntas, atención a la diversidad y alumnado de otra clase (desdobles, optativas).</li>
+          <li><b>Aula:</b> medidas, mesas (individuales, parejas, en U, grupos) y mobiliario.</li>
+          <li><b>De la tutoría:</b> en cada grupo ves automáticamente la distribución de su tutor/a, para verla, imprimirla o copiarla.</li>
           <li><b>Compartir e imprimir:</b> compartir con el claustro, copiar las de otros e imprimir en una hoja A4.</li>
         </ul>
       </details>
@@ -74,15 +75,16 @@
         <summary><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg><span>Tutores <em class="aviso-etq">Solo cuentas autorizadas</em> <small>Acceso: inicio de sesión con Microsoft 365 (@salesianas.org)</small></span></summary>
         <ul>
           <li><b>Todo lo del profesorado.</b></li>
-          <li><b>Tu tutoría:</b> las distribuciones que el equipo docente comparte de tu grupo, para tenerlas a mano y copiarlas.</li>
+          <li><b>Tu tutoría:</b> las distribuciones que haces de tu grupo las ve automáticamente el profesorado, marcadas «De la tutoría» (no hace falta compartirlas).</li>
           <li><b>Hoja de la tutoría:</b> tu nombre aparece como tutor/a en la hoja impresa de la clase.</li>
         </ul>
       </details>
       <details class="info-bloque">
         <summary><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span>Administración <em class="aviso-etq">Solo cuentas autorizadas</em> <small>Acceso: inicio de sesión con Microsoft 365 (@salesianas.org)</small></span></summary>
         <ul>
-          <li><b>Alumnado de Primaria:</b> clases, tutor/a y listas de cada curso (ESO y Bachillerato se gestionan en Control de baños).</li>
-          <li><b>Curso y cuentas:</b> se usan el curso activo y las cuentas de administración de Control de baños.</li>
+          <li><b>Alumnado y grupos:</b> los de todas las etapas (Primaria, ESO y Bachillerato) vienen de la base de datos común del colegio. Si allí cambia una lista o un tutor/a, aquí se ve al momento.</li>
+          <li><b>Tutores:</b> el correo del tutor/a de cada grupo se indica en la lista común de grupos.</li>
+          <li><b>Curso y cuentas:</b> se usan el curso activo y la lista común de permisos del colegio.</li>
         </ul>
       </details>
     </div>
@@ -113,6 +115,13 @@
 
     <!-- Editor -->
     <section id="vEditor" hidden>
+      <ol class="pasos-uso" aria-label="Cómo se usa">
+        <li><b>Elige la clase</b> en el desplegable.</li>
+        <li><b>Crea una distribución</b> con «+ Nueva»: ponle nombre y elige cómo colocar las mesas.</li>
+        <li><b>Ajusta el aula</b> en «Aula y mesas»: medidas, mobiliario y mesas.</li>
+        <li><b>Sienta al alumnado</b> en «Alumnado», teniendo en cuenta parejas, niveles y atención a la diversidad.</li>
+        <li><b>Imprime</b> la hoja o <b>compártela</b> con el claustro.</li>
+      </ol>
       <div class="barra-sup">
         <label class="campo">Clase <select id="selClase"></select></label>
         <label class="campo crece">Distribución <select id="selPlano"></select></label>
@@ -147,14 +156,34 @@
 
           <!-- Alumnado -->
           <div data-panel="alumnado" id="panelAlumnado">
+            <section class="tener">
+              <h3>A tener en cuenta</h3>
+              <button class="tener-btn" id="btnNoJuntos" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="8" r="3"/><circle cx="17" cy="8" r="3"/><path d="M2 20c.6-3 2.4-5 5-5s4.4 2 5 5M12 20c.6-3 2.4-5 5-5s4.4 2 5 5M10 3l4 4M14 3l-4 4"/></svg>
+                <span>No deben sentarse juntos<small id="resNoJuntos"></small></span>
+              </button>
+              <button class="tener-btn" id="btnNiveles" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V14M10 20V10M16 20V6M22 20H2"/></svg>
+                <span>Nivel competencial<small id="resNiveles"></small></span>
+              </button>
+              <button class="tener-btn" id="btnDiversidad" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2.5"/><path d="M12 8v6M7 10h10M9 21l3-7 3 7"/></svg>
+                <span>Atención a la diversidad<small id="resDiversidad"></small></span>
+              </button>
+              <label class="check ver-niveles" id="verNivelesCaja" hidden><input type="checkbox" id="verNiveles"> Ver los niveles en el plano</label>
+            </section>
             <div class="cuenta" id="cuenta"></div>
+            <h3>Sentar</h3>
             <div class="grupo-btn">
-              <button class="btn mini" id="btnOrden" type="button" title="Por orden de lista, de delante hacia atrás">Sentar por lista</button>
-              <button class="btn mini" id="btnAzar" type="button" title="Respeta a quien está fijado y las parejas que no deben coincidir">Sentar al azar</button>
-              <button class="btn mini" id="btnLevantar" type="button">Levantar a todos</button>
+              <button class="btn mini" id="btnOrden" type="button" title="Por orden de lista, de delante hacia atrás">Por lista</button>
+              <button class="btn mini" id="btnAzar" type="button" title="Respeta a quien está fijado y las parejas que no deben coincidir">Al azar</button>
+              <span class="con-info"><button class="btn mini" id="btnPorNivel" type="button">Por niveles</button><button class="info-i" type="button" data-info="infoPorNivel" aria-expanded="false" aria-label="Qué significa «Por niveles»">i</button></span>
+              <span class="con-info"><button class="btn mini" id="btnEquilibrado" type="button">Equilibrado</button><button class="info-i" type="button" data-info="infoEquilibrado" aria-expanded="false" aria-label="Qué significa «Equilibrado»">i</button></span>
             </div>
+            <p class="info-caja" id="infoPorNivel" hidden><b>Por niveles:</b> cada mesa tiene alumnado del mismo nivel. Los niveles bajos se sientan delante, cerca del docente.</p>
+            <p class="info-caja" id="infoEquilibrado" hidden><b>Equilibrado:</b> cada mesa compensa niveles. En parejas se une Alto con Medio bajo y Medio alto con Bajo. En grupos, cada grupo mezcla alumnado de todos los niveles (en grupos de 4, uno de cada nivel).</p>
             <div class="grupo-btn">
-              <button class="btn mini" id="btnNoJuntos" type="button">No deben sentarse juntos…</button>
+              <button class="btn mini" id="btnLevantar" type="button">Levantar a todos</button>
               <button class="btn mini" id="btnOtraClase" type="button">Añadir de otra clase…</button>
             </div>
             <label class="campo">Nombre que se ve
@@ -182,16 +211,13 @@
               <label class="campo">Ancho (m) <input id="inAncho" type="number" min="3" max="30" step="0.1"></label>
               <label class="campo">Fondo (m) <input id="inFondo" type="number" min="3" max="30" step="0.1"></label>
             </div>
-            <h3>Mesas del alumnado</h3>
-            <div class="paleta" id="paletaMesas"></div>
-            <div class="grupo-btn">
-              <button class="btn mini" id="btnBloque" type="button">Bloque de mesas…</button>
-              <button class="btn mini" id="btnPlantilla" type="button">Cambiar por plantilla…</button>
-            </div>
+            <h3>Distribución de mesas</h3>
+            <p class="ayuda ayuda-dist">Un puesto por alumno/a. Al cambiarla, quien tenía sitio se vuelve a sentar en el mismo orden (y se puede deshacer).</p>
+            <div id="panelPlantillas"></div>
             <h3>Mobiliario</h3>
             <div class="paleta" id="paletaMuebles"></div>
             <div id="props" class="props"></div>
-            <p class="ayuda">Arrastra para mover; con Mayús, o arrastrando en una zona vacía, seleccionas varios. Teclas: <kbd>R</kbd> girar, <kbd>Supr</kbd> eliminar, flechas para ajustar, <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicar, <kbd>Ctrl</kbd>+<kbd>Z</kbd> deshacer.</p>
+            <p class="ayuda">Arrastra para mover. Para girar libremente, arrastra el círculo <b>↻</b> que aparece encima de lo seleccionado. Con Mayús, o arrastrando en una zona vacía, seleccionas varios. Teclas: <kbd>R</kbd> girar, <kbd>Supr</kbd> eliminar, flechas para ajustar, <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicar, <kbd>Ctrl</kbd>+<kbd>Z</kbd> deshacer.</p>
           </div>
         </aside>
 
@@ -205,7 +231,7 @@
             <button class="btn mini icono" id="btnMas" type="button" aria-label="Acercar">+</button>
             <span class="sep"></span>
             <button class="btn mini" id="btnVista" type="button" title="Girar el plano para verlo desde la mesa del docente"></button>
-            <span class="puestos" id="puestos"></span>
+            <span class="tag-tut etq-plano" id="etqTutoria" hidden></span><span class="puestos" id="puestos"></span>
           </div>
           <div class="lienzo" id="lienzo"><svg id="plano" xmlns="http://www.w3.org/2000/svg"></svg></div>
         </div>
