@@ -215,6 +215,7 @@
     planos: [], claseId: null, plano: null, modo: "alumnado", sel: new Set(), alSel: null,
     hist: [], fut: [], zoom: 1, arrastre: null, marco: null,
     vista: LS.get("aula-vista", "alumnado"), nombre: LS.get("aula-nombre", "n1"), verNiveles: LS.get("aula-ver-niveles", false),
+    orientacion: new Map(), // alumno/a (matrícula) → medida de Orientación que obliga a sentarlo delante
   };
   const D = () => S.plano?.datos;
   const esMio = (p) => p && p.propietario === S.user.email;
@@ -272,6 +273,12 @@
       if (faltan.length) try { await leer("aul_alumnos", faltan, alumnos); } catch (e) { /* ya no existe */ }
       const vistosA = new Set();
       return { curso, clases: unicas, alumnos: alumnos.filter((a) => !vistosA.has(a.id) && vistosA.add(a.id)) };
+    },
+    // Medidas de Orientación que afectan al sitio (si la función aún no existe, no pasa nada)
+    async medidas(cursoId) {
+      const { data, error } = await sb.rpc("aul_medidas_orientacion", { p_curso: cursoId });
+      if (error) { console.warn("Sin medidas de Orientación", error); return []; }
+      return data || [];
     },
     async planos(cursoId) { return ok(await sb.from(TABLA).select("*").eq("curso_id", cursoId).order("actualizado", { ascending: false })); },
     async crear(p) { return ok(await sb.from(TABLA).insert(p).select().single()); },
@@ -432,7 +439,13 @@
 
   // ─── Atención a la diversidad: siempre en las primeras filas ──────────────
   const MOTIVOS = { docente: "Ubicación cercana al docente", vision: "Problemas de visión", otro: "Otra razón" };
-  const motivoTexto = (m) => (m?.motivo === "otro" ? m.otro || MOTIVOS.otro : MOTIVOS[m?.motivo] || "");
+  const motivoTexto = (m) => (m?.motivo === "orientacion" ? m.medida + " (Orientación)" : m?.motivo === "otro" ? m.otro || MOTIVOS.otro : MOTIVOS[m?.motivo] || "");
+  // Lo que marca cada docente más lo que ya consta en Orientación (eso no se puede quitar desde aquí)
+  function diversidadDe(d) {
+    const o = {};
+    for (const [id, medida] of S.orientacion) o[id] = { motivo: "orientacion", medida };
+    return { ...(d.diversidad || {}), ...o };
+  }
   // Puestos de las N primeras filas de mesas (mesas a menos de 60 cm de altura cuentan como la misma fila)
   function puestosDelante(d, nf = d.filasDelante || 2) {
     const ys = [...new Set(d.items.filter((i) => T[i.t].p).map((i) => i.y))].sort((a, b) => a - b), filas = [];
@@ -443,7 +456,7 @@
   // Mueve a las primeras filas a quien lo necesita, cambiándolo por alguien que no (si puede, del mismo nivel).
   // Devuelve cuántos no caben delante.
   function ponerDelante(d, as = d.asientos) {
-    const div = new Set(Object.keys(d.diversidad || {}).map(Number)), fijos = new Set(d.fijos);
+    const div = new Set(Object.keys(diversidadDe(d)).map(Number)), fijos = new Set(d.fijos);
     if (!div.size) return 0;
     const delante = puestosDelante(d), enDelante = new Set(delante);
     const clave = (id) => Object.keys(as).find((k) => as[k] === id);
@@ -732,9 +745,9 @@
     $$("[data-panel]").forEach((p) => (p.hidden = p.dataset.panel !== S.modo));
     const d = D(), als = alumnosPlano(), sentado = new Set(Object.values(d.asientos)), fijos = new Set(d.fijos);
     const sin = als.filter((a) => !sentado.has(a.id)), con = als.filter((a) => sentado.has(a.id));
-    const extra = new Set(d.extra);
+    const extra = new Set(d.extra), dvs = diversidadDe(d);
     const chip = (a, sentadoYa) => `<span class="al${S.alSel === a.id ? " elegido" : ""}${fijos.has(a.id) ? " fijo" : ""}" data-al="${a.id}" title="${esc(nombreLista(a))}${extra.has(a.id) ? " · " + esc(claseDe(a.clase_id)?.nombre || "") : ""}">
-      ${d.diversidad[a.id] ? `<i class="dv" title="Atención a la diversidad: ${esc(motivoTexto(d.diversidad[a.id]))}">D</i>` : ""}${nivelDe(d.niveles[a.id]) ? `<i class="nv" style="--c:${nivelDe(d.niveles[a.id]).c}" title="Nivel ${nivelDe(d.niveles[a.id]).n.toLowerCase()}"></i>` : ""}<span class="nm">${esc(nombreLista(a))}</span>${sentadoYa ? `<button type="button" data-fijar class="${fijos.has(a.id) ? "on" : ""}" title="${fijos.has(a.id) ? "Quitar fijación" : "Fijar en su sitio (no se mueve al sentar al azar ni por lista)"}">${PIN}</button><button type="button" data-levantar title="Dejar sin sitio">↥</button>` : ""}<button type="button" data-excluir title="${extra.has(a.id) ? "Quitar de esta distribución" : "No está en este grupo (desdobles, optativas…)"}">✕</button></span>`;
+      ${dvs[a.id] ? `<i class="dv" title="Atención a la diversidad: ${esc(motivoTexto(dvs[a.id]))}">D</i>` : ""}${nivelDe(d.niveles[a.id]) ? `<i class="nv" style="--c:${nivelDe(d.niveles[a.id]).c}" title="Nivel ${nivelDe(d.niveles[a.id]).n.toLowerCase()}"></i>` : ""}<span class="nm">${esc(nombreLista(a))}</span>${sentadoYa ? `<button type="button" data-fijar class="${fijos.has(a.id) ? "on" : ""}" title="${fijos.has(a.id) ? "Quitar fijación" : "Fijar en su sitio (no se mueve al sentar al azar ni por lista)"}">${PIN}</button><button type="button" data-levantar title="Dejar sin sitio">↥</button>` : ""}<button type="button" data-excluir title="${extra.has(a.id) ? "Quitar de esta distribución" : "No está en este grupo (desdobles, optativas…)"}">✕</button></span>`;
     $("#listaSin").innerHTML = sin.map((a) => chip(a, false)).join("");
     $("#listaSin").dataset.vacio = als.length ? "Todo el alumnado tiene sitio." : "No hay alumnado.";
     $("#listaCon").innerHTML = con.map((a) => chip(a, true)).join("");
@@ -748,7 +761,7 @@
       (als.length > ps ? `<div style="background:var(--aviso-bg);color:var(--aviso)"><b>${als.length - ps}</b>sin mesa</div>` : "");
     const np = d.noJuntos.length, nn = als.filter((a) => d.niveles[a.id]).length;
     $("#resNoJuntos").textContent = np ? `${np} pareja${np > 1 ? "s" : ""}` : "Ninguna todavía";
-    const div = als.filter((a) => d.diversidad[a.id]), delante = new Set(puestosDelante(d));
+    const div = als.filter((a) => dvs[a.id]), delante = new Set(puestosDelante(d));
     const atras = div.filter((a) => { const k = claveDe(d, a.id); return k && !delante.has(k); }).length;
     $("#resDiversidad").textContent = !div.length ? "Nadie indicado" : `${div.length} alumno${div.length > 1 ? "s" : ""} · ${(d.filasDelante || 2) === 1 ? "1.ª fila" : `${d.filasDelante || 2} primeras filas`}` + (atras ? ` · ⚠ ${atras} más atrás` : "");
     $("#resDiversidad").classList.toggle("mal", !!atras);
@@ -1045,6 +1058,7 @@
     if (!editable()) return avisoLectura();
     const als = alumnosPlano(), dv = D().diversidad, nf = D().filasDelante || 2;
     const fila = (a) => {
+      if (S.orientacion.has(a.id)) return `<li><span class="nm">${esc(nombreLista(a))}</span><span class="dv-fija" title="Consta en su ficha de Orientación; se cambia allí">${esc(S.orientacion.get(a.id))} · Orientación</span></li>`;
       const m = dv[a.id] || {};
       return `<li><span class="nm">${esc(nombreLista(a))}</span>
         <span class="dv-campos"><select name="m${a.id}" data-dv>
@@ -1052,7 +1066,7 @@
         </select><input name="o${a.id}" placeholder="Especifica la razón" maxlength="80" value="${esc(m.otro || "")}"${m.motivo === "otro" ? "" : " hidden"}></span></li>`;
     };
     const r = await dialogo(`<h2>Atención a la diversidad</h2>
-      <p class="dlg-sub">Alumnado con medida de ubicación cercana al docente, problemas de visión u otra razón. Al sentar (por lista, al azar, por niveles o equilibrado) siempre queda en las primeras filas. Solo lo ves tú; no sale en la hoja impresa.</p>
+      <p class="dlg-sub">Alumnado con medida de ubicación cercana al docente, problemas de visión u otra razón. Quien tiene en Orientación la medida «Ubicación cercana al profesor/a» ya sale marcado. Al sentar (por lista, al azar, por niveles o equilibrado) siempre queda en las primeras filas. Solo lo ves tú; no sale en la hoja impresa.</p>
       <div class="filas-delante"><span>Sentar en</span>${[1, 2, 3].map((n) => `<label><input type="radio" name="nf" value="${n}"${n === nf ? " checked" : ""}><span>${n === 1 ? "la 1.ª fila" : `las ${n} primeras filas`}</span></label>`).join("")}</div>
       <ul class="niveles scroll">${als.map(fila).join("")}</ul>`, {
       aceptar: "Guardar",
@@ -1409,6 +1423,7 @@
     let datos;
     try { datos = DEMO ? datosDemo() : await remoto.datos(); }
     catch (e) { $("#vCargando").textContent = "No se ha podido cargar el alumnado: " + (e.message || e); return; }
+    for (const m of DEMO ? [] : await remoto.medidas(datos.curso.id).catch(() => [])) S.orientacion.set(m.matricula_id, m.medida);
     S.cursoId = datos.curso.id; S.cursoNombre = /^\d{4}-\d{4}$/.test(datos.curso.nombre) ? datos.curso.nombre : cursoTexto();
     S.clases = [...datos.clases].sort((a, b) => a.orden - b.orden);
     for (const a of datos.alumnos) {
@@ -1417,6 +1432,8 @@
       S.porClase.get(a.clase_id).push(a);
     }
     for (const l of S.porClase.values()) l.sort((a, b) => a.orden - b.orden || porNombre(a, b));
+    // Modo prueba: dos alumnos/as de la primera clase con la medida de Orientación de ubicación cercana
+    if (DEMO) for (const a of [4, 9].map((i) => (S.porClase.get(S.clases[0]?.id) || [])[i]).filter(Boolean)) S.orientacion.set(a.id, "Ubicación cercana al profesor/a");
 
     try { S.planos = await almacen.planos(S.cursoId); }
     catch (e) {
