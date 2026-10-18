@@ -1,9 +1,9 @@
 // Permite instalar Distribución del aula como app.
 // El alumnado y las distribuciones se piden siempre a Supabase; aquí solo se guarda la web.
 // Si cambias la lista de archivos, sube también el número de VERSION.
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = `aula-${VERSION}`;
-const CARCASA = ['./', 'index.html', 'styles.css', 'app.js', 'config.js', 'manifest.json', 'logo.svg',
+const CARCASA = ['./', 'index.html', 'styles.css', 'app.js', 'config.js', 'teams.js', 'manifest.json', 'logo.svg',
   'favicon-32.png', 'favicon-48.png', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'];
 
 self.addEventListener('install', e => {

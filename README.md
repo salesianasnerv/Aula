@@ -10,6 +10,8 @@ Web para que cada profesor/a monte el plano de su aula, siente al alumnado y lo 
 
 - **App instalable:** botón «Instalar como app» en la franja verde (`manifest.json` y `sw.js`; si cambias la lista de archivos de `sw.js`, sube su `VERSION`).
 
+- **En Teams:** la app de Teams abre la web con `?teams=1` y `teams.js` entra sola con la cuenta de Teams (hace falta la línea `api://aula-nervion.vercel.app/…` en Entra ID, ver «0 - Apps de Teams/README.md»). En el navegador no cambia nada.
+
 ## Probarla sin conexión (modo prueba)
 
 Abre la web con `?demo` al final (`https://aula-nervion.vercel.app/?demo`): alumnado ficticio y todo se guarda solo en ese navegador.
