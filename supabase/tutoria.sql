@@ -5,7 +5,8 @@
 --    Se toma primero el tutor/a que Orientación ya tiene enlazado (grupo.tutor_id → personal) y, si no hay,
 --    se busca el nombre del tutor/a de Séneca en «personal».
 -- 2. Las distribuciones que hace el tutor/a de SU grupo las ve todo el profesorado (solo lectura), marcadas
---    «De la tutoría», sin tener que compartirlas.
+--    «De la tutoría», sin tener que compartirlas. Y al revés: el tutor/a ve siempre las que hace el
+--    profesorado de su grupo (solo lectura), aunque no estén compartidas.
 -- 3. Atención a la diversidad: la web marca sola al alumnado que en Orientación tiene la medida
 --    «Ubicación cercana al profesor/a» este curso, para sentarlo en las primeras filas. Solo se envía el
 --    número de matrícula y el nombre de la medida (nada de la ficha).
@@ -38,6 +39,7 @@ drop policy if exists "aul ver" on aul_planos;
 create policy "aul ver" on aul_planos for select to authenticated
   using (es_profesorado() and (
     propietario = lower(auth.jwt() ->> 'email') or compartido or aul_es_de_tutoria(clase_id, propietario)
+    or aul_es_de_tutoria(clase_id, lower(auth.jwt() ->> 'email'))
   ));
 
 -- 3. Medidas de Orientación que afectan a dónde se sienta el alumno/a (curso indicado de «cursos»)

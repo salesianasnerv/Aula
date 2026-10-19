@@ -11,6 +11,6 @@ window.APP_CONFIG = {
   dominiosExtra: ["salesianes.org"],  // otros dominios del mismo Microsoft 365 del colegio
   colegio: "Escuelas Salesianas María Auxiliadora · Nervión (Sevilla)",
 
-  // Medidas del aula nueva por defecto, en centímetros
-  aula: { ancho: 800, fondo: 800 },
+  // Medidas del aula nueva por defecto, en centímetros (rectangular: 6 m de ancho, junto a la pizarra, y 8 m de largo)
+  aula: { ancho: 600, fondo: 800 },
 };

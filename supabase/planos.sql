@@ -26,7 +26,8 @@ drop policy if exists "aul borrar"  on aul_planos;
 
 create policy "aul ver" on aul_planos for select to authenticated
   using (es_profesorado() and (propietario = lower(auth.jwt() ->> 'email') or compartido));
--- (tutoria.sql amplía esta regla: el profesorado ve también las distribuciones del tutor/a de cada grupo)
+-- (tutoria.sql amplía esta regla: el profesorado ve también las distribuciones del tutor/a de cada grupo,
+--  y el tutor/a ve las del profesorado de su grupo)
 create policy "aul crear" on aul_planos for insert to authenticated
   with check (es_profesorado() and propietario = lower(auth.jwt() ->> 'email'));
 create policy "aul editar" on aul_planos for update to authenticated
