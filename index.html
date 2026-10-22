@@ -68,7 +68,7 @@
         <ul>
           <li><b>Distribuciones:</b> las tuyas de cada clase, con varias propuestas por clase. Se guardan solas.</li>
           <li><b>Alumnado:</b> sentar por lista, al azar, por niveles o equilibrado, fijar a alguien en su sitio, parejas que no deben sentarse juntas, atención a la diversidad y alumnado de otra clase (desdobles, optativas).</li>
-          <li><b>Aula:</b> medidas, mesas (individuales, parejas, en U, grupos) y mobiliario.</li>
+          <li><b>Aula:</b> medidas del aula y de las mesas, mesas (individuales, parejas, líneas de 3, en U, grupos) y mobiliario.</li>
           <li><b>De la tutoría:</b> en cada grupo te aparece siempre la distribución de su tutor/a en «Distribución», para verla, imprimirla o copiarla.</li>
           <li><b>Compartir e imprimir:</b> compartir con el claustro, copiar las de otros e imprimir en una hoja A4.</li>
         </ul>
@@ -148,15 +148,17 @@
           <div class="instr-pant" data-pant="3" hidden>
             <h3><span class="num-paso">3</span>Aula</h3>
             <ol>
-            <li>Configura las medidas (por defecto, 6 m de ancho y 8 m de largo).</li>
+            <li>Configura las medidas del aula (por defecto, 6 m de ancho y 8,6 m de largo).</li>
+            <li>Si hace falta, cambia el tamaño de la mesa individual (por defecto, 70 × 50 cm; en Primaria suelen ser más pequeñas).</li>
             <li>Añade el mobiliario.</li>
           </ol>
           </div>
           <div class="instr-pant" data-pant="4" hidden>
             <h3><span class="num-paso">4</span>Distribución de mesas</h3>
             <ol>
-            <li>Elige la distribución que quieras: individuales, parejas, en forma de U, grupos o aula vacía.</li>
+            <li>Elige la distribución que quieras: individuales, parejas, líneas de 3, en forma de U, grupos o aula vacía.</li>
             <li>Configura las filas y columnas.</li>
+            <li>Si quieres, añade mesas sueltas (individuales, dobles, triples o de grupo). Para separar una mesa unida, tócala en el plano y pulsa «Separar en individuales».</li>
           </ol>
           </div>
           <div class="instr-pant" data-pant="5" hidden>
@@ -204,7 +206,7 @@
 
       <div id="sinPlano" class="caja vacio-grande" hidden>
         <h2>Esta clase todavía no tiene ninguna distribución tuya</h2>
-        <p>Crea una a partir de una plantilla (filas, parejas, grupos, en U…) y después ajústala a tu gusto.</p>
+        <p>Crea una a partir de una plantilla (filas, parejas, líneas de 3, grupos, en U…) y después ajústala a tu gusto.</p>
         <button class="btn primario" id="btnNuevo2" type="button">+ Crear distribución</button>
       </div>
 
@@ -239,7 +241,6 @@
               <option value="c">Nombre y apellidos</option>
             </select>
           </label>
-          <p class="ayuda">Arrastra cada nombre a una mesa, o tócalo y después toca la mesa. Entre dos mesas se cambian de sitio; a la lista, quedan sin sitio.</p>
           <h3>Sin sitio <span id="nSin"></span></h3>
           <div id="listaSin" class="lista-al zona-lista"></div>
           <h3>Con sitio <span id="nCon"></span></h3>
@@ -254,27 +255,35 @@
         <div class="centro">
           <!-- Aula: medidas y mobiliario (desplegable), encima de la distribución de mesas -->
           <details class="caja-herr desplegable" id="detAula">
-            <summary><span class="num-paso" aria-label="Paso 3">3</span>Aula <small>Medidas y mobiliario</small></summary>
-            <div class="aula-cols">
+            <summary><span class="num-paso" aria-label="Paso 3">3</span>Aula <small>Medidas del aula y de las mesas · mobiliario</small></summary>
+            <div class="aula-medidas">
               <div>
-                <h3>Medidas</h3>
+                <h3>Medidas del aula</h3>
                 <div class="fila medidas">
                   <label class="campo">Ancho (m) <input id="inAncho" type="number" min="3" max="30" step="0.1"></label>
                   <label class="campo">Largo (m) <input id="inFondo" type="number" min="3" max="30" step="0.1"></label>
                 </div>
               </div>
               <div>
-                <h3>Mobiliario</h3>
-                <div class="paleta" id="paletaMuebles"></div>
+                <h3>Medidas de la mesa individual</h3>
+                <div class="fila medidas">
+                  <label class="campo">Ancho (cm) <input id="inMesaAncho" type="number" min="30" max="150" step="5"></label>
+                  <label class="campo">Fondo (cm) <input id="inMesaFondo" type="number" min="30" max="150" step="5"></label>
+                </div>
+                <p class="ayuda nota">Habitual: 70 × 50 cm; en Primaria suelen ser más pequeñas. Las mesas dobles, triples y de grupo se ajustan solas.</p>
               </div>
             </div>
-            <p class="ayuda">Arrastra para mover. Para girar libremente, arrastra el círculo <b>↻</b> que aparece encima de lo seleccionado. Con Mayús, o arrastrando en una zona vacía, seleccionas varios. Teclas: <kbd>R</kbd> girar, <kbd>Supr</kbd> eliminar, flechas para ajustar, <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicar, <kbd>Ctrl</kbd>+<kbd>Z</kbd> deshacer.</p>
+            <h3>Mobiliario</h3>
+            <div class="paleta" id="paletaMuebles"></div>
           </details>
           <!-- Distribución de mesas (desplegable) encima de «Sentar» -->
           <details class="caja-herr desplegable" id="detMesas">
             <summary><span class="num-paso" aria-label="Paso 4">4</span>Distribución de mesas <small id="resMesas"></small></summary>
             <p class="ayuda ayuda-dist">Un puesto por alumno/a. Al cambiarla, quien tenía sitio se vuelve a sentar en el mismo orden (y se puede deshacer).</p>
             <div id="panelPlantillas"></div>
+            <h3 class="tit-anadir">Añadir mesas sueltas</h3>
+            <p class="ayuda ayuda-dist">Se añaden vacías en el centro del aula; después arrástralas a su sitio. Para separar una mesa doble, triple o de grupo, tócala en el plano y pulsa «Separar en individuales».</p>
+            <div class="paleta paleta-mesas" id="paletaMesas"></div>
           </details>
           <section class="caja-herr" id="cajaSentar">
             <h3><span class="num-paso" aria-label="Paso 5">5</span>Sentar</h3>
@@ -329,6 +338,9 @@
               </div>
             </div>
             <div class="lienzo-info"><span class="tag-tut etq-plano" id="etqTutoria" hidden></span><span class="puestos" id="puestos"></span></div>
+            <!-- Cómo se usa el plano en cada modo -->
+            <p class="ayuda ayuda-plano" id="ayudaAlumnado">Arrastra cada nombre a una mesa, o tócalo y después toca la mesa. Entre dos mesas se cambian de sitio; a la lista, quedan sin sitio.</p>
+            <p class="ayuda ayuda-plano" id="ayudaAula" hidden>Arrastra para mover. Para girar libremente, arrastra el círculo <b>↻</b> que aparece encima de lo seleccionado. Con Mayús, o arrastrando en una zona vacía, seleccionas varios. Teclas: <kbd>R</kbd> girar, <kbd>Supr</kbd> eliminar, flechas para ajustar, <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicar, <kbd>Ctrl</kbd>+<kbd>Z</kbd> deshacer.</p>
             <div class="lienzo" id="lienzo"><svg id="plano" xmlns="http://www.w3.org/2000/svg"></svg></div>
             <!-- Lo seleccionado en el plano: recuadro encima del plano, a la derecha -->
             <div id="props" class="props"></div>

@@ -51,26 +51,31 @@
   }
 
   // ─── Catálogo de mesas y mobiliario (medidas en cm) ────────────────────────
-  // p: puestos [x, y, lado de la silla] respecto al centro de la mesa; sw: ancho de cada puesto
-  const MESAS = {
-    ind:    { n: "Individual",  w: 70,  h: 50,  sw: 70, p: [[0, 0, "s"]] },
-    doble:  { n: "Doble",       w: 130, h: 50,  sw: 65, p: [[-32.5, 0, "s"], [32.5, 0, "s"]] },
-    triple: { n: "Triple",      w: 195, h: 50,  sw: 65, p: [[-65, 0, "s"], [0, 0, "s"], [65, 0, "s"]] },
-    cara:   { n: "Cara a cara", w: 70,  h: 100, sw: 70, p: [[0, -25, "n"], [0, 25, "s"]] },
-    g4:     { n: "Grupo de 4",  w: 130, h: 100, sw: 65, p: [[-32.5, -25, "n"], [32.5, -25, "n"], [-32.5, 25, "s"], [32.5, 25, "s"]] },
-    g6:     { n: "Grupo de 6",  w: 195, h: 100, sw: 65, p: [[-65, -25, "n"], [0, -25, "n"], [65, -25, "n"], [-65, 25, "s"], [0, 25, "s"], [65, 25, "s"]] },
-  };
-  // Grupos de 3, 5 y 8: dos filas enfrentadas (la de delante con los que sobran)
+  // p: puestos [x, y, lado de la silla] respecto al centro de la mesa; sw: ancho de cada puesto; ph: fondo de cada puesto.
+  // Las medidas salen de la mesa individual de cada distribución (en Primaria suelen ser más pequeñas): ver medidasMesa().
   const MIEMBROS = [3, 4, 5, 6, 8];
-  for (const n of MIEMBROS) {
-    if (MESAS["g" + n]) continue;
-    const arriba = Math.ceil(n / 2), abajo = n - arriba, w = arriba * 65;
-    const fila = (k, y, lado) => Array.from({ length: k }, (_, i) => [(i - (k - 1) / 2) * 65, y, lado]);
-    MESAS["g" + n] = { n: `Grupo de ${n}`, w, h: 100, sw: 65, p: [...fila(arriba, -25, "n"), ...fila(abajo, 25, "s")] };
+  const MESAS = { ind: { n: "Individual" }, doble: { n: "Doble" }, triple: { n: "Triple" }, cara: { n: "Cara a cara" } };
+  for (const n of MIEMBROS) MESAS["g" + n] = { n: `Grupo de ${n}` };
+  // Mesa individual por defecto: 70 cm de ancho y 50 de fondo. En las mesas de varios puestos,
+  // cada puesto mide 5 cm menos de ancho (dos individuales de 70 → mesa doble de 130).
+  const MESA_DEF = { w: 70, h: 50 };
+  let MESA = { w: 0, h: 0 };
+  function medidasMesa(m = MESA_DEF) {
+    const iw = +m.w || MESA_DEF.w, ph = +m.h || MESA_DEF.h, pw = iw - 5;
+    if (iw === MESA.w && ph === MESA.h) return;
+    MESA = { w: iw, h: ph };
+    const fila = (k, y, lado) => Array.from({ length: k }, (_, i) => [(i - (k - 1) / 2) * pw, y, lado]);
+    Object.assign(MESAS.ind, { w: iw, h: ph, sw: iw, ph, p: [[0, 0, "s"]] });
+    Object.assign(MESAS.doble, { w: 2 * pw, h: ph, sw: pw, ph, p: fila(2, 0, "s") });
+    Object.assign(MESAS.triple, { w: 3 * pw, h: ph, sw: pw, ph, p: fila(3, 0, "s") });
+    Object.assign(MESAS.cara, { w: iw, h: 2 * ph, sw: iw, ph, p: [[0, -ph / 2, "n"], [0, ph / 2, "s"]] });
+    // Grupos: dos filas enfrentadas (la de delante con los que sobran)
+    for (const n of MIEMBROS) {
+      const arriba = Math.ceil(n / 2), abajo = n - arriba;
+      Object.assign(MESAS["g" + n], { w: arriba * pw, h: 2 * ph, sw: pw, ph, p: [...fila(arriba, -ph / 2, "n"), ...fila(abajo, ph / 2, "s")] });
+    }
   }
-  // Orden de la paleta y del selector de tipo de mesa
-  const ORDEN_MESAS = ["ind", "doble", "triple", "cara", "g3", "g4", "g5", "g6", "g8"];
-  for (const k of ORDEN_MESAS) { const m = MESAS[k]; delete MESAS[k]; MESAS[k] = m; }
+  medidasMesa();
   const MUEBLES = {
     docente:    { n: "Mesa del docente", w: 140, h: 70, et: "Docente" },
     pizarra:    { n: "Pizarra",          w: 300, h: 10, et: "Pizarra", fino: true },
@@ -94,6 +99,7 @@
     return [it.x + lx * c - ly * s, it.y + lx * s + ly * c];
   }
   function puestosDe(d) {
+    medidasMesa(d.mesa);
     const out = [];
     for (const it of d.items) {
       const t = T[it.t]; if (!t?.p) continue;
@@ -109,6 +115,7 @@
   const PLANTILLAS = [
     { id: "filas", n: "Individuales" },
     { id: "parejas", n: "Parejas" },
+    { id: "trios", n: "Líneas de 3" },
     { id: "u", n: "En forma de U" },
     { id: "grupos", n: "Grupos" },
     { id: "vacia", n: "Aula vacía" },
@@ -169,13 +176,22 @@
       if (!cuantos) { const { cols, filas } = cabe(tipo, sx, sy, W, H, y0); cuantos = cols * filas; }
       return Array(cuantos).fill(tipo);
     };
-    const enFilas = (tipos, sx, sy) => { const r = colocar(tipos, sx, sy, W, y0, cols); return { items: r.items, fondo: r.fin + 45, rejilla: r.rejilla }; };
+    const enFilas = (tipos, sx, sy, c = cols) => { const r = colocar(tipos, sx, sy, W, y0, c); return { items: r.items, fondo: r.fin + 45, rejilla: r.rejilla }; };
     const m = MESAS["g" + miembros] ? miembros : 4;
     switch (id) {
       case "filas": return enFilas(lista("ind", 45, 60, n), 45, 60);
       case "parejas": {
         const t = n ? [...Array(Math.floor(n / 2)).fill("doble"), ...(n % 2 ? ["ind"] : [])] : lista("doble", 60, 60);
         return enFilas(t, 60, 60);
+      }
+      // Mesas triples, de dos en dos con un pasillo en medio. Si sobra uno, dos mesas dobles en vez de una triple
+      case "trios": {
+        let t = lista("triple", 80, 60);
+        if (n) {
+          const r = n % 3, tr = Math.floor(n / 3) - (r === 1 && n > 3 ? 1 : 0);
+          t = [...Array(tr).fill("triple"), ...(r === 2 ? ["doble"] : r === 1 ? (n > 3 ? ["doble", "doble"] : ["ind"]) : [])];
+        }
+        return enFilas(t, 80, 60, cols || 2);
       }
       case "grupos": return enFilas(n ? tiposGrupos(n, m) : lista("g" + m, 80, 70), 80, 70);
       case "u": return mesasU(W, H, n);
@@ -184,7 +200,8 @@
   }
   // En U: mesas dobles en los dos laterales y al fondo, mirando al centro
   function mesasU(W, H, n) {
-    const capFondo = Math.max(1, Math.floor((W - 330) / 135));
+    const dw = T.doble.w, ph = T.doble.h, paso = dw + 5;
+    const capFondo = Math.max(1, Math.floor((W - 330) / paso));
     let lados, fondo, suelta = false;
     if (n) {
       const mesas = Math.ceil(n / 2); suelta = n % 2 === 1;
@@ -192,23 +209,24 @@
       if (mesas === 1) fondo = 1;
       lados = mesas - fondo;
     } else {
-      const porLado = Math.max(1, Math.floor((H - 175 - 265 + 70) / 135));
+      const porLado = Math.max(1, Math.floor((H - 175 - 265 + 70) / paso));
       lados = porLado * 2; fondo = capFondo;
     }
     const izq = Math.ceil(lados / 2), der = lados - izq, out = [];
-    for (let i = 0; i < izq; i++) out.push({ id: uid(), t: "doble", x: 75, y: 265 + i * 135, r: 90 });
-    for (let i = 0; i < der; i++) out.push({ id: uid(), t: "doble", x: W - 75, y: 265 + i * 135, r: -90 });
-    const yF = Math.max(n ? 0 : H - 95, izq ? 265 + (izq - 1) * 135 + 65 + 85 : 265);
-    const x0 = (W - (fondo * 130 + (fondo - 1) * 5)) / 2 + 65;
-    for (let i = 0; i < fondo; i++) out.push({ id: uid(), t: "doble", x: ajusta(x0 + i * 135), y: ajusta(yF), r: 0 });
+    const xl = ajusta(ph / 2 + 50);
+    for (let i = 0; i < izq; i++) out.push({ id: uid(), t: "doble", x: xl, y: ajusta(265 + i * paso), r: 90 });
+    for (let i = 0; i < der; i++) out.push({ id: uid(), t: "doble", x: W - xl, y: ajusta(265 + i * paso), r: -90 });
+    const yF = Math.max(n ? 0 : H - ph - 45, izq ? 265 + (izq - 1) * paso + dw / 2 + ph + 35 : 265);
+    const x0 = (W - (fondo * dw + (fondo - 1) * 5)) / 2 + dw / 2;
+    for (let i = 0; i < fondo; i++) out.push({ id: uid(), t: "doble", x: ajusta(x0 + i * paso), y: ajusta(yF), r: 0 });
     // Con un número impar, la última mesa (la de más atrás) es individual
-    if (suelta) { const ult = out[out.length - 1]; ult.t = "ind"; ult.x = ajusta(ult.x - 32.5); }
-    return { items: out, fondo: yF + 95 };
+    if (suelta) { const ult = out[out.length - 1]; ult.t = "ind"; ult.x = ajusta(ult.x - T.doble.sw / 2); }
+    return { items: out, fondo: yF + ph + 45 };
   }
-  function datosNuevos(plantilla, W = CFG.aula?.ancho || 600, H = CFG.aula?.fondo || 800, miembros, n, cols = null) {
+  function datosNuevos(plantilla, W = CFG.aula?.ancho || 600, H = CFG.aula?.fondo || 860, miembros, n, cols = null) {
     const { items, fondo } = mesasPlantilla(plantilla, W, H, miembros, n, cols);
     H = Math.max(H, ajusta(fondo));
-    return { ancho: W, fondo: H, plantilla, miembros: miembros || 4, columnas: cols, items: [...basicos(W, H), ...items], asientos: {}, fijos: [], noJuntos: [], extra: [], excluidos: [], niveles: {}, diversidad: {}, filasDelante: 2 };
+    return { ancho: W, fondo: H, mesa: { ...MESA }, plantilla, miembros: miembros || 4, columnas: cols, items: [...basicos(W, H), ...items], asientos: {}, fijos: [], noJuntos: [], extra: [], excluidos: [], niveles: {}, diversidad: {}, filasDelante: 2 };
   }
 
   // ─── Estado ──────────────────────────────────────────────────────────────
@@ -589,15 +607,16 @@
     const t = T[it.t], { w, h } = tam(it);
     let s = "";
     if (t.p) {
-      for (const [px, py, l] of t.p) s += `<rect class="silla" x="${px - 17}" y="${l === "s" ? py + 28 : py - 42}" width="34" height="14" rx="6"/>`;
+      const ph = t.ph, sil = Math.min(34, t.sw - 16);
+      for (const [px, py, l] of t.p) s += `<rect class="silla" x="${px - sil / 2}" y="${l === "s" ? py + ph / 2 + 3 : py - ph / 2 - 17}" width="${sil}" height="14" rx="6"/>`;
       s += `<rect class="mesa" x="${-w / 2}" y="${-h / 2}" width="${w}" height="${h}" rx="3"/>`;
       t.p.forEach(([px, py], i) => {
         const k = it.id + ":" + i, al = d.asientos[k], cls = ["puesto"];
         if (al != null) cls.push("ocupado");
         if (o.interactivo && S.alSel != null) { if (al == null) cls.push("libre-dest"); else if (al === S.alSel) cls.push("elegido"); }
-        s += `<rect class="${cls.join(" ")}"${o.interactivo ? ` data-seat="${k}"` : ""} x="${px - t.sw / 2 + 2}" y="${py - 23}" width="${t.sw - 4}" height="46" rx="3"/>`;
+        s += `<rect class="${cls.join(" ")}"${o.interactivo ? ` data-seat="${k}"` : ""} x="${px - t.sw / 2 + 2}" y="${py - ph / 2 + 2}" width="${t.sw - 4}" height="${ph - 4}" rx="3"/>`;
         const nv = o.interactivo && S.verNiveles && al != null && nivelDe(d.niveles?.[al]);
-        if (nv) s += `<rect x="${px - t.sw / 2 + 4}" y="${py + 19}" width="${t.sw - 8}" height="3" rx="1.5" fill="${nv.c}" pointer-events="none"/>`;
+        if (nv) s += `<rect x="${px - t.sw / 2 + 4}" y="${py + ph / 2 - 6}" width="${t.sw - 8}" height="3" rx="1.5" fill="${nv.c}" pointer-events="none"/>`;
       });
       const cols = t.p.filter((p) => p[1] === t.p[0][1]).length;
       for (let j = 1; j < cols; j++) { const x = -w / 2 + t.sw * j; s += `<line class="div-puesto" x1="${x}" y1="${-h / 2}" x2="${x}" y2="${h / 2}"/>`; }
@@ -631,6 +650,7 @@
     return `<g class="it"${o.interactivo ? ` data-id="${it.id}"` : ""} transform="translate(${r1(it.x)} ${r1(it.y)}) rotate(${it.r || 0})">${s}</g>`;
   }
   function svgPlano(d, o = {}) {
+    medidasMesa(d.mesa);
     const W = d.ancho, H = d.fondo, M = o.margen ?? 30;
     const doc = (o.vista ?? S.vista) === "docente";
     const V = ([x, y]) => (doc ? [W - x, H - y] : [x, y]);
@@ -647,7 +667,7 @@
     // Nombres y rótulos, siempre derechos aunque la mesa esté girada
     const als = o.alumnos || alumnosPlano(), rep = repetidos(als), modo = o.nombre || S.nombre;
     // Hueco del puesto tal y como se ve (la mesa puede estar girada; el texto, no)
-    const huecoPuesto = (it) => { const rr = (((it.r || 0) % 180) + 180) % 180, w = T[it.t].sw - 6, h = 46 - 10; return rr > 45 && rr < 135 ? [h, w] : [w, h]; };
+    const huecoPuesto = (it) => { const rr = (((it.r || 0) % 180) + 180) % 180, w = T[it.t].sw - 6, h = T[it.t].ph - 14; return rr > 45 && rr < 135 ? [h, w] : [w, h]; };
     const etqs = [];
     for (const it of d.items) {
       if (!T[it.t].p) continue;
@@ -696,6 +716,7 @@
   // ─── Pintar la pantalla ───────────────────────────────────────────────────
   function render() {
     const hay = !!S.plano;
+    if (hay) medidasMesa(D().mesa);
     $("#editor").hidden = !hay;
     $("#sinPlano").hidden = hay || !S.claseId || planosClase().length > 0;
     $("#btnNuevo").disabled = $("#selPlano").disabled = !S.claseId;
@@ -780,6 +801,8 @@
     $("#verNivelesCaja").hidden = !nn; $("#verNiveles").checked = S.verNiveles;
     $("#selNombre").value = S.nombre;
     $("#inAncho").value = d.ancho / 100; $("#inFondo").value = d.fondo / 100;
+    $("#inMesaAncho").value = MESA.w; $("#inMesaFondo").value = MESA.h;
+    $("#ayudaAlumnado").hidden = S.modo !== "alumnado" || !editable(); $("#ayudaAula").hidden = S.modo !== "aula" || !editable();
     pintarPlantillasPanel();
     pintarProps();
   }
@@ -793,12 +816,14 @@
       el.innerHTML = `<h3>${t.p ? "Mesa · " : ""}${t.n}</h3>${giros}` +
         `<label class="campo giro-campo">Giro <span><input data-prop="r" type="number" min="-180" max="180" step="1" value="${it.r || 0}"> °</span></label>` +
         (t.p ? `<label class="campo">Cambiar mesa por <select data-prop="t">${Object.entries(MESAS).map(([k, m]) => `<option value="${k}"${k === it.t ? " selected" : ""}>${m.n} (${m.p.length})</option>`).join("")}</select></label>`
+          + (t.p.length > 1 ? `<div class="grupo-btn"><button class="btn mini" data-acc="sep" type="button">Separar en individuales</button></div>` : "")
           : `<div class="fila"><label class="campo">Largo (cm) <input data-prop="w" type="number" min="10" max="2000" step="5" value="${w}"></label><label class="campo">Ancho (cm) <input data-prop="h" type="number" min="4" max="2000" step="5" value="${h}"></label></div>`) +
         (it.t === "texto" ? `<label class="campo">Texto <input data-prop="texto" value="${esc(it.texto || "")}" placeholder="Escribe el rótulo"></label>` : "") + fin;
     } else {
       el.innerHTML = `<h3>${its.length} elementos seleccionados</h3>${giros}
         <div class="grupo-btn"><button class="btn mini" data-acc="alH" type="button">Alinear en fila</button><button class="btn mini" data-acc="alV" type="button">Alinear en columna</button></div>
-        <div class="grupo-btn"><button class="btn mini" data-acc="repH" type="button">Repartir ↔</button><button class="btn mini" data-acc="repV" type="button">Repartir ↕</button></div>${fin}`;
+        <div class="grupo-btn"><button class="btn mini" data-acc="repH" type="button">Repartir ↔</button><button class="btn mini" data-acc="repV" type="button">Repartir ↕</button></div>
+        ${its.some((i) => T[i.t].p?.length > 1) ? `<div class="grupo-btn"><button class="btn mini" data-acc="sep" type="button">Separar en individuales</button></div>` : ""}${fin}`;
     }
   }
 
@@ -824,6 +849,22 @@
     if (n > 1) S.sel = new Set(mesas.map((m) => m.id));
   }
 
+  // Separa una mesa de varios puestos en mesas individuales, cada una donde estaba su puesto y con la silla
+  // hacia el mismo lado. Quien estaba sentado sigue en su sitio.
+  function separar(d, it) {
+    const t = T[it.t]; if (!t.p || t.p.length < 2) return [it];
+    const ind = MESAS.ind, fx = (ind.w + 10) / t.sw, nuevas = [];
+    t.p.forEach(([px, py, lado], i) => {
+      const [x, y] = aMundo(it, px * fx, py ? Math.sign(py) * (ind.h / 2 + 10) : 0);
+      const m = { id: uid(), t: "ind", x: ajusta(x), y: ajusta(y), r: lado === "n" ? (((it.r || 0) + 360) % 360) - 180 : it.r || 0 };
+      const al = d.asientos[it.id + ":" + i];
+      if (al != null) { delete d.asientos[it.id + ":" + i]; d.asientos[m.id + ":0"] = al; }
+      nuevas.push(m);
+    });
+    d.items.splice(d.items.indexOf(it), 1, ...nuevas);
+    return nuevas;
+  }
+
   function añadir(tipo) {
     const d = D(); let x = ajusta(d.ancho / 2), y = ajusta(d.fondo / 2);
     while (d.items.some((i) => Math.abs(i.x - x) < 10 && Math.abs(i.y - y) < 10)) { x += 30; y += 30; }
@@ -839,6 +880,11 @@
       case "dup": {
         const nuevos = sel().map((i) => ({ ...i, id: uid(), x: i.x + 30, y: i.y + 30 }));
         if (cambio((d) => d.items.push(...nuevos))) { S.sel = new Set(nuevos.map((i) => i.id)); render(); }
+        break;
+      }
+      case "sep": {
+        let nuevas = [];
+        if (cambio((d) => d.items.filter((i) => ids.has(i.id)).forEach((i) => { nuevas = nuevas.concat(separar(d, i)); }))) { S.sel = new Set(nuevas.map((m) => m.id)); render(); }
         break;
       }
       case "del": if (cambio((d) => (d.items = d.items.filter((i) => !ids.has(i.id))))) { S.sel.clear(); render(); } break;
@@ -1139,6 +1185,7 @@
   // ─── Panel del aula ───────────────────────────────────────────────────────
   function prepararAula() {
     $("#paletaMuebles").innerHTML = Object.entries(MUEBLES).map(([k, t]) => `<button type="button" data-add="${k}">${icono(k)}${t.n}</button>`).join("");
+    $("#paletaMesas").innerHTML = Object.entries(MESAS).map(([k, t]) => `<button type="button" data-add="${k}">${icono(k)}${t.n}</button>`).join("");
     $$("[data-add]").forEach((b) => (b.onclick = () => añadir(b.dataset.add)));
     const medida = (prop) => (e) => {
       const v = Math.round(parseFloat(String(e.target.value).replace(",", ".")) * 100);
@@ -1152,6 +1199,19 @@
     };
     $("#inAncho").onchange = medida("ancho");
     $("#inFondo").onchange = medida("fondo");
+    // Tamaño de la mesa individual: las mesas se recolocan con la distribución elegida (se puede deshacer)
+    const medidaMesa = (prop) => (e) => {
+      const v = ajusta(parseFloat(String(e.target.value).replace(",", ".")));
+      if (!(v >= 30 && v <= 150)) { pintarPanel(); return toast("Escribe una medida entre 30 y 150 cm"); }
+      let recolocadas = false;
+      const ok = cambio((d) => {
+        d.mesa = { ...MESA, [prop]: v }; medidasMesa(d.mesa); LS.set("aula-mesa", d.mesa);
+        if (d.plantilla && d.plantilla !== "vacia" && d.items.some((i) => T[i.t].p)) { recolocar(d, d.plantilla, d.miembros || LS.get("aula-miembros", 4), d.columnas || null); recolocadas = true; }
+      });
+      if (ok) toast(recolocadas ? "Mesas recolocadas con el nuevo tamaño (Ctrl+Z para deshacer)" : "Tamaño de mesa cambiado");
+    };
+    $("#inMesaAncho").onchange = medidaMesa("w");
+    $("#inMesaFondo").onchange = medidaMesa("h");
     $("#props").addEventListener("click", (e) => { const b = e.target.closest("[data-acc]"); if (b) accion(b.dataset.acc); });
     $("#props").addEventListener("change", (e) => {
       const p = e.target.dataset.prop; if (!p) return;
@@ -1205,7 +1265,7 @@
       caja.hidden = pl !== "grupos";
       $('[data-mini="grupos"]', f).innerHTML = miniatura(datosNuevos("grupos", W, H, m, n));
       $(`[data-mini="${pl}"]`, f).innerHTML = miniatura(datosNuevos(pl, W, H, m, n, cols));
-      $(".filascols-dlg", f).innerHTML = filasCols(mesasPlantilla(pl, W || CFG.aula?.ancho || 600, H || CFG.aula?.fondo || 800, m, n, cols).rejilla);
+      $(".filascols-dlg", f).innerHTML = filasCols(mesasPlantilla(pl, W || CFG.aula?.ancho || 600, H || CFG.aula?.fondo || 860, m, n, cols).rejilla);
     };
     f.addEventListener("change", (e) => {
       if (e.target.name === "miembros") LS.set("aula-miembros", +e.target.value);
@@ -1220,23 +1280,24 @@
   // Distribución de mesas desde su desplegable: se aplica al momento (se puede deshacer)
   function aplicarPlantilla(id, m, cols = null) {
     if (!editable()) return avisoLectura();
+    cambio((d) => recolocar(d, id, m, cols));
+  }
+  function recolocar(d, id, m, cols = null) {
     const n = alumnosPlano().length;
-    cambio((d) => {
-      const orden = ordenados(d).map((p) => d.asientos[p.k]).filter((x) => x != null);
-      const { items, fondo } = mesasPlantilla(id, d.ancho, d.fondo, m, n, cols);
-      d.fondo = Math.max(d.fondo, ajusta(fondo));
-      d.items = [...d.items.filter((i) => !T[i.t].p), ...items];
-      d.plantilla = id; d.miembros = m; d.columnas = cols;
-      d.asientos = {}; d.fijos = [];
-      ordenados(d).forEach((p, i) => { if (orden[i] != null) d.asientos[p.k] = orden[i]; });
-      ponerDelante(d);
-    });
+    const orden = ordenados(d).map((p) => d.asientos[p.k]).filter((x) => x != null);
+    const { items, fondo } = mesasPlantilla(id, d.ancho, d.fondo, m, n, cols);
+    d.fondo = Math.max(d.fondo, ajusta(fondo));
+    d.items = [...d.items.filter((i) => !T[i.t].p), ...items];
+    d.plantilla = id; d.miembros = m; d.columnas = cols;
+    d.asientos = {}; d.fijos = [];
+    ordenados(d).forEach((p, i) => { if (orden[i] != null) d.asientos[p.k] = orden[i]; });
+    ponerDelante(d);
   }
   const minis = new Map();
   function pintarPlantillasPanel() {
     const d = D(), n = alumnosPlano().length, m = d.miembros || LS.get("aula-miembros", 4), act = d.plantilla;
     const mini = (id) => {
-      const c = id === act ? d.columnas || null : null, k = [id, d.ancho, d.fondo, n, id === "grupos" ? m : "", c].join("|");
+      const c = id === act ? d.columnas || null : null, k = [id, d.ancho, d.fondo, MESA.w, MESA.h, n, id === "grupos" ? m : "", c].join("|");
       if (!minis.has(k)) minis.set(k, miniatura(datosNuevos(id, d.ancho, d.fondo, m, n, c)));
       return minis.get(k);
     };
@@ -1285,7 +1346,7 @@
     if (p) {
       const d = p.datos || (p.datos = datosNuevos("vacia"));
       for (const [k, v] of Object.entries({ items: [], asientos: {}, fijos: [], noJuntos: [], extra: [], excluidos: [], niveles: {}, diversidad: {}, filasDelante: 2 })) if (!d[k]) d[k] = v;
-      d.ancho ||= 600; d.fondo ||= 800;
+      d.ancho ||= 600; d.fondo ||= 860; d.mesa ||= { ...MESA_DEF };
       limpiar(d);
       estado(esMio(p) ? (almacen === local ? "Guardado en este navegador" : "Guardado") : "Solo lectura");
     }
@@ -1297,6 +1358,8 @@
     S.planos.push(fila); abrir(fila);
   }
   async function nuevo() {
+    // Mesas del tamaño de la distribución abierta o, si no hay ninguna, del último que se usó
+    medidasMesa(D()?.mesa || LS.get("aula-mesa", MESA_DEF));
     const c = claseDe(S.claseId), n = planosClase().filter(esMio).length;
     const al = (S.porClase.get(S.claseId) || []).length;
     const reciente = (ps) => ps.sort((a, b) => String(b.actualizado || "").localeCompare(String(a.actualizado || "")))[0];

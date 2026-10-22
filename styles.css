@@ -234,9 +234,14 @@ h2 .num-paso, h3 .num-paso, summary .num-paso { margin-right: 8px; vertical-alig
 .filascols button:disabled { opacity: .4; cursor: default; }
 .filascols small { color: var(--suave); font-size: 12px; }
 :root[data-theme="dark"] .filascols .miembros-t { color: var(--azul); }
-.aula-cols { display: grid; grid-template-columns: minmax(200px, 260px) minmax(0, 1fr); gap: 4px 24px; }
-.aula-cols .paleta { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
-@media (max-width: 700px) { .aula-cols { grid-template-columns: 1fr; } }
+/* Paso 3: medidas del aula y de la mesa, una al lado de otra; el mobiliario, debajo */
+.aula-medidas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 24px; }
+.aula-medidas .nota { margin: 6px 0 0; font-size: 12px; }
+#detAula .paleta, #detMesas .paleta-mesas { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+#detMesas .tit-anadir { margin: 14px 14px 4px; }
+@media (max-width: 700px) { .aula-medidas { grid-template-columns: 1fr; } }
+/* Ayuda encima del plano: cambia con el modo (sentar alumnado / mover mesas y mobiliario) */
+.ayuda-plano { margin: 0; padding: 6px 12px; font-size: 12px; border-bottom: 1px solid var(--borde); background: var(--panel); }
 .sentar-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
 .sentar-fila .info-caja { flex: 1 1 100%; margin: 0; }
 .seg { display: inline-flex; border: 1px solid var(--borde); border-radius: 8px; overflow: hidden; }
