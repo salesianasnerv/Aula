@@ -6,7 +6,8 @@
 --    se busca el nombre del tutor/a de Séneca en «personal».
 -- 2. Las distribuciones que hace el tutor/a de SU grupo las ve todo el profesorado (solo lectura), marcadas
 --    «De la tutoría», sin tener que compartirlas. Y al revés: el tutor/a ve siempre las que hace el
---    profesorado de su grupo (solo lectura), aunque no estén compartidas.
+--    profesorado de su grupo (solo lectura), aunque no estén compartidas, y las de optativas y desdobles
+--    con alumnado de su grupo.
 -- 3. Atención a la diversidad: la web marca sola al alumnado que en Orientación tiene la medida
 --    «Ubicación cercana al profesor/a» este curso, para sentarlo en las primeras filas. Solo se envía el
 --    número de matrícula y el nombre de la medida (nada de la ficha).
@@ -35,11 +36,24 @@ language sql stable security definer set search_path = public as $$
 $$;
 grant execute on function aul_es_de_tutoria(int, text) to authenticated;
 
+-- Optativas y desdobles: el tutor/a ve también las distribuciones con alumnado de su grupo añadido
+-- con «Añadir de otra clase…» (datos.extra guarda los id de matrícula)
+create or replace function aul_tutor_de_mezcla(p_datos jsonb, p_email text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from jsonb_array_elements_text(case when jsonb_typeof(p_datos -> 'extra') = 'array' then p_datos -> 'extra' else '[]'::jsonb end) e(id)
+    join matriculas m on m.id::text = e.id
+    join grupos g on g.id = m.clase_id
+    where lower(g.tutor_email) = lower(p_email))
+$$;
+grant execute on function aul_tutor_de_mezcla(jsonb, text) to authenticated;
+
 drop policy if exists "aul ver" on aul_planos;
 create policy "aul ver" on aul_planos for select to authenticated
   using (es_profesorado() and (
     propietario = lower(auth.jwt() ->> 'email') or compartido or aul_es_de_tutoria(clase_id, propietario)
     or aul_es_de_tutoria(clase_id, lower(auth.jwt() ->> 'email'))
+    or aul_tutor_de_mezcla(datos, lower(auth.jwt() ->> 'email'))
   ));
 
 -- 3. Medidas de Orientación que afectan a dónde se sienta el alumno/a (curso indicado de «cursos»)

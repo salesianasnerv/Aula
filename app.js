@@ -724,7 +724,7 @@
     if (!hay) { $("#soloLectura").hidden = true; estado(""); return; }
     const mio = editable();
     $("#btnRenombrar").disabled = $("#btnCompartir").disabled = $("#btnEliminar").disabled = !mio;
-    const tut = deTutoria(S.plano);
+    const tut = deTutoria(S.plano) && propia(S.plano);
     $("#btnCompartir").classList.toggle("activo", !!S.plano.compartido || tut);
     $("#btnCompartir").textContent = tut ? "De la tutoría ✓" : S.plano.compartido ? "Compartida ✓" : "Compartir";
     if (tut) { $("#btnCompartir").disabled = true; $("#btnCompartir").title = "Eres tutor/a de este grupo: el profesorado ya ve esta distribución"; }
@@ -737,6 +737,7 @@
       <p>Puedes verla e imprimirla, pero no cambiarla. Si quieres adaptarla, pulsa <b>«Duplicar»</b>, arriba, y tendrás tu propia copia.<br>
       La distribución de la tutoría te seguirá apareciendo siempre en este grupo, así que <b>ponle a tu copia el nombre de tu materia</b> (por ejemplo, «Matemáticas») para distinguirlas.</p>`;
     else if (!mio && soyTutor(S.plano.clase_id)) $("#soloLectura").innerHTML = `Distribución de <strong>${esc(S.plano.propietario_nombre || S.plano.propietario)}</strong> para tu grupo. Como tutor/a ves siempre las distribuciones del profesorado de tu tutoría. Puedes verla e imprimirla; para cambiarla, pulsa <b>«Duplicar»</b>, arriba, y tendrás tu propia copia.`;
+    else if (!mio && !propia(S.plano)) $("#soloLectura").innerHTML = `Distribución de <strong>${esc(S.plano.propietario_nombre || S.plano.propietario)}</strong> para ${esc(claseDe(S.plano.clase_id)?.nombre || "otro grupo")} con alumnado de este grupo (optativa o desdoble). Puedes verla e imprimirla; para cambiarla, pulsa <b>«Duplicar»</b>, arriba, y tendrás tu propia copia.`;
     else if (!mio) $("#soloLectura").innerHTML = `Distribución de <strong>${esc(S.plano.propietario_nombre || S.plano.propietario)}</strong>, compartida con el claustro. Puedes verla e imprimirla; para cambiarla, pulsa <b>«Duplicar»</b>, arriba, y tendrás tu propia copia.`;
     const et = $("#etqTutoria");
     et.hidden = !tut;
@@ -1166,7 +1167,7 @@
     };
     let cid = otras[0]?.id;
     const r = await dialogo(`<h2>Añadir alumnado de otra clase</h2>
-      <p class="dlg-sub">Para desdobles, optativas o grupos mixtos. Marca a quien venga a esta distribución.</p>
+      <p class="dlg-sub">Para desdobles, optativas o grupos mixtos. Marca a quien venga a esta distribución. Queda guardado y la distribución sale también en esa clase.</p>
       <label class="campo">Clase <select id="ocSel">${otras.map((c) => `<option value="${c.id}">${esc(c.nombre)}</option>`).join("")}</select></label>
       <div class="grupo-btn" style="margin:10px 0"><button class="btn mini" type="button" id="ocTodos">Marcar todos</button><button class="btn mini" type="button" id="ocNinguno">Ninguno</button></div>
       <div class="marcar scroll" id="ocLista">${lista(cid)}</div>`, {
@@ -1179,7 +1180,7 @@
     });
     if (!r) return;
     const deClase = new Set((S.porClase.get(+cid) || []).map((a) => a.id)), marcados = r.getAll("al").map(Number);
-    cambio((d) => (d.extra = [...d.extra.filter((id) => !deClase.has(id)), ...marcados]));
+    if (cambio((d) => (d.extra = [...d.extra.filter((id) => !deClase.has(id)), ...marcados]))) pintarPlanos();
   }
 
   // ─── Panel del aula ───────────────────────────────────────────────────────
@@ -1319,20 +1320,28 @@
     for (const [e, cs] of grupos) if (!cs.length) grupos.delete(e);
     $("#selClase").innerHTML = `<option value="">— Elige la clase —</option>` + [...grupos].map(([e, cs]) => `<optgroup label="${e}">${cs.map((c) => `<option value="${c.id}">${esc(c.nombre)}</option>`).join("")}</optgroup>`).join("");
   }
-  const planosClase = () => S.planos.filter((p) => p.clase_id == S.claseId)
+  // Optativas y desdobles: una distribución sale también en las clases de donde viene el alumnado añadido
+  // con «Añadir de otra clase…»
+  const clasesMezcla = (p) => new Set((p.datos?.extra || []).map((id) => S.alumnos.get(id)?.clase_id).filter((c) => c != null && c != p.clase_id));
+  const propia = (p) => p.clase_id == S.claseId;
+  const conMezcla = (p) => [p.clase_id, ...clasesMezcla(p)].filter((c) => c != S.claseId).map((c) => claseDe(c)?.nombre).filter(Boolean);
+  const planosClase = () => S.planos.filter((p) => propia(p) || clasesMezcla(p).has(+S.claseId))
     .sort((a, b) => (esMio(b) - esMio(a)) || (deTutoria(b) - deTutoria(a)) || a.nombre.localeCompare(b.nombre, "es"));
   function pintarPlanos() {
-    const ps = planosClase(), mios = ps.filter(esMio), tut = ps.filter((p) => !esMio(p) && deTutoria(p)), otros = ps.filter((p) => !esMio(p) && !deTutoria(p));
+    const ps = planosClase(), mios = ps.filter(esMio), ajenas = ps.filter((p) => !esMio(p) && propia(p));
+    const tut = ajenas.filter(deTutoria), otros = ajenas.filter((p) => !deTutoria(p)), mezcla = ps.filter((p) => !esMio(p) && !propia(p));
     // El tutor/a ve siempre las del profesorado de su grupo (compartidas o no)
     const tutor = soyTutor(), delGrupo = tutor ? otros : [], compartidas = tutor ? [] : otros;
     const quien = (p) => " · " + esc(p.propietario_nombre || p.propietario);
-    const op = (p) => `<option value="${p.id}">${esc(p.nombre)}${esMio(p) ? (deTutoria(p) ? " (de la tutoría)" : p.compartido ? " (compartida)" : "") : deTutoria(p) ? " · puesta por el tutor/a, " + esc(p.propietario_nombre || p.propietario) : quien(p)}</option>`;
+    const con = (p) => { const cs = conMezcla(p); return cs.length ? " · con " + esc(cs.join(", ")) : ""; };
+    const op = (p) => `<option value="${p.id}">${esc(p.nombre)}${con(p)}${esMio(p) ? (deTutoria(p) && propia(p) ? " (de la tutoría)" : p.compartido ? " (compartida)" : "") : deTutoria(p) && propia(p) ? " · puesta por el tutor/a, " + esc(p.propietario_nombre || p.propietario) : quien(p)}</option>`;
     $("#selPlano").innerHTML = !S.claseId ? `<option value="">— Elige antes la clase —</option>`
       : !ps.length ? `<option value="">— Ninguna todavía —</option>`
       : `<option value="">— Elige una —</option>` + (mios.length ? `<optgroup label="Mis distribuciones">${mios.map(op).join("")}</optgroup>` : "") +
         (tut.length ? `<optgroup label="De la tutoría (la ha puesto el tutor/a del grupo)">${tut.map(op).join("")}</optgroup>` : "") +
         (delGrupo.length ? `<optgroup label="Del profesorado de tu tutoría">${delGrupo.map(op).join("")}</optgroup>` : "") +
-        (compartidas.length ? `<optgroup label="Compartidas por el claustro">${compartidas.map(op).join("")}</optgroup>` : "");
+        (compartidas.length ? `<optgroup label="Compartidas por el claustro">${compartidas.map(op).join("")}</optgroup>` : "") +
+        (mezcla.length ? `<optgroup label="Optativas y desdobles con alumnado de este grupo">${mezcla.map(op).join("")}</optgroup>` : "");
     $("#selPlano").value = S.plano?.id || "";
   }
   async function elegirClase(id, planoId) {
@@ -1352,20 +1361,20 @@
     }
     pintarPlanos(); render();
   }
-  async function crear(nombre, datos, compartido = false) {
+  async function crear(nombre, datos, compartido = false, claseId = S.claseId) {
     await guardarYa();
-    const fila = await almacen.crear({ curso_id: S.cursoId, clase_id: S.claseId, nombre, propietario_nombre: S.user.nombre, compartido, datos });
+    const fila = await almacen.crear({ curso_id: S.cursoId, clase_id: claseId, nombre, propietario_nombre: S.user.nombre, compartido, datos });
     S.planos.push(fila); abrir(fila);
   }
   async function nuevo() {
     // Mesas del tamaño de la distribución abierta o, si no hay ninguna, del último que se usó
     medidasMesa(D()?.mesa || LS.get("aula-mesa", MESA_DEF));
-    const c = claseDe(S.claseId), n = planosClase().filter(esMio).length;
+    const c = claseDe(S.claseId), n = planosClase().filter((p) => esMio(p) && propia(p)).length;
     const al = (S.porClase.get(S.claseId) || []).length;
     const reciente = (ps) => ps.sort((a, b) => String(b.actualizado || "").localeCompare(String(a.actualizado || "")))[0];
     // Lo que ha puesto el tutor/a del grupo en «A tener en cuenta» (incompatibilidades, nivel competencial y
     // atención a la diversidad) se carga por defecto
-    const tutoria = reciente(planosClase().filter((p) => !esMio(p) && deTutoria(p) && p.datos));
+    const tutoria = reciente(planosClase().filter((p) => !esMio(p) && propia(p) && deTutoria(p) && p.datos));
     const deTut = tutoria && (Object.keys(tutoria.datos.niveles || {}).length || (tutoria.datos.noJuntos || []).length || Object.keys(tutoria.datos.diversidad || {}).length);
     const r = await dialogo(`<h2>Nueva distribución</h2><p class="dlg-sub">${esc(c?.nombre || "")} · ${al} alumnos/as: se crea un puesto para cada uno</p>
       ${deTut ? `<p class="info-caja">Se carga lo que ha indicado el tutor/a en «A tener en cuenta» (<b>incompatibilidades</b>, <b>nivel competencial</b> y <b>atención a la diversidad</b>) · ${esc(tutoria.propietario_nombre || tutoria.propietario)}. Después puedes cambiarlo.</p>` : ""}
@@ -1376,7 +1385,7 @@
     if (!r) return;
     const datos = datosNuevos(r.get("pl"), undefined, undefined, +r.get("miembros") || 4, al, +r.get("cols") || null);
     // Se mantienen el nivel competencial y las parejas de tu última distribución de esta clase
-    const previa = reciente(planosClase().filter(esMio));
+    const previa = reciente(planosClase().filter((p) => esMio(p) && propia(p)));
     if (previa?.datos) { datos.niveles = { ...(previa.datos.niveles || {}) }; datos.diversidad = JSON.parse(JSON.stringify(previa.datos.diversidad || {})); datos.filasDelante = previa.datos.filasDelante || 2; datos.noJuntos = (previa.datos.noJuntos || []).map((p) => [...p]); }
     // Y lo del tutor/a: sus niveles si tú aún no has puesto ninguno; sus incompatibilidades y su atención
     // a la diversidad, sumadas a las tuyas (si los dos habéis indicado a alguien, se queda lo tuyo)
@@ -1399,7 +1408,7 @@
       <p class="ayuda">Ponle el nombre de tu materia: la distribución de la tutoría te seguirá apareciendo en este grupo y así las distingues.</p>`
         : `<label class="campo">Nombre de la copia <input name="nombre" required maxlength="80" value="${esc((esMio(p) ? "Copia de " : "") + p.nombre)}"></label>`}`, { aceptar: "Duplicar" });
     if (!r) return;
-    try { await crear(String(r.get("nombre")).trim() || "Copia", JSON.parse(JSON.stringify(p.datos))); toast("Copia creada"); } catch (e) { fallo(e); }
+    try { await crear(String(r.get("nombre")).trim() || "Copia", JSON.parse(JSON.stringify(p.datos)), false, p.clase_id); toast("Copia creada"); } catch (e) { fallo(e); }
   }
   async function renombrar() {
     const p = S.plano; if (!esMio(p)) return;
