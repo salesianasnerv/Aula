@@ -1610,7 +1610,7 @@
     $("#btnVista").onclick = () => { S.vista = S.vista === "docente" ? "alumnado" : "docente"; LS.set("aula-vista", S.vista); render(); };
     document.addEventListener("keydown", teclado);
 
-    if (!S.clases.length) { $("#vEditor").innerHTML = `<p class="vacio">No hay clases en el curso actual.</p>`; return; }
+    if (!S.clases.length) { $("#vEditor").innerHTML = `<p class="vacio">No tienes clases en esta web. Cada profesor/a ve solo los grupos de su etapa (Primaria, ESO o Bachillerato), según los grupos de Microsoft 365 del colegio. Si crees que es un error, escribe a web@nervion.salesianas.org.</p>`; return; }
     // Se empieza sin clase elegida (ver los pasos de arriba)
     pintarPlanos(); render();
   }
