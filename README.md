@@ -28,4 +28,5 @@ Abre la web con `?demo` al final (`https://aula-nervion.vercel.app/?demo`): alum
 
 ## Privacidad
 
-En el repositorio y en Vercel no hay ningún nombre del alumnado: se leen de Supabase solo tras entrar con una cuenta @salesianas.org. `data/` (listas para pruebas locales) está excluida en `.gitignore`.
+En el repositorio y en Vercel no hay ningún nombre del alumnado: se leen de Supabase solo tras entrar con una cuenta @salesianas.org.
+Cada profesor/a ve solo los grupos de su etapa, según los grupos de Microsoft 365 (Infantil, Primaria, ESO, Bachillerato, CCFF) que la sincronización nocturna apunta en `personal`. Quien tiene el permiso `banos` (gestiona las listas) o `todas` ve todo el colegio. Las distribuciones compartidas y la medida de Orientación «Ubicación cercana al profesor/a» siguen la misma regla. Ver `supabase/solo-profesorado-de-cada-etapa.sql` (25-10-2026). `data/` (listas para pruebas locales) está excluida en `.gitignore`.
