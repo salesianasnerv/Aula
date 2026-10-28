@@ -22,7 +22,14 @@
     const el = document.createElement("div");
     el.className = "toast" + (tipo === "error" ? " error" : "");
     el.textContent = msg;
-    $("#toasts").appendChild(el);
+    // Con una ventana abierta, el aviso va dentro de ella (si no, quedaría detrás)
+    const dlgs = [...document.querySelectorAll("dialog[open]")], dlg = dlgs[dlgs.length - 1];
+    let caja = $("#toasts");
+    if (dlg) {
+      caja = dlg.querySelector(":scope > .toasts");
+      if (!caja) { caja = document.createElement("div"); caja.className = "toasts"; caja.setAttribute("aria-live", "polite"); dlg.appendChild(caja); }
+    }
+    caja.appendChild(el);
     setTimeout(() => el.remove(), ms);
   }
   function fallo(e) { console.error(e); toast("Error: " + (e.message || e), "error", 7000); }
@@ -719,7 +726,7 @@
     if (hay) medidasMesa(D().mesa);
     $("#editor").hidden = !hay;
     $("#sinPlano").hidden = hay || !S.claseId || planosClase().length > 0;
-    $("#btnNuevo").disabled = $("#selPlano").disabled = !S.claseId;
+    $("#btnNuevo").disabled = $("#selPlano").disabled = $("#btnSondeos2").disabled = !S.claseId;
     for (const id of ["#btnDuplicar", "#btnRenombrar", "#btnCompartir", "#btnEliminar", "#btnImprimir"]) $(id).disabled = !hay;
     if (!hay) { $("#soloLectura").hidden = true; estado(""); return; }
     const mio = editable();
@@ -796,6 +803,7 @@
     const atras = div.filter((a) => { const k = claveDe(d, a.id); return k && !delante.has(k); }).length;
     $("#resDiversidad").textContent = !div.length ? "Nadie indicado" : `${div.length} alumno${div.length > 1 ? "s" : ""} · ${(d.filasDelante || 2) === 1 ? "1.ª fila" : `${d.filasDelante || 2} primeras filas`}` + (atras ? ` · ⚠ ${atras} más atrás` : "");
     $("#resDiversidad").classList.toggle("mal", !!atras);
+    pintarResumenSondeos();
     $("#resNiveles").textContent = nn ? `${nn} de ${als.length} con nivel` : "Sin indicar";
     $("#btnPorNivel").disabled = $("#btnEquilibrado").disabled = !nn;
     $("#btnPorNivel").title = $("#btnEquilibrado").title = nn ? "" : "Indica antes el nivel competencial (A tener en cuenta)";
@@ -1075,6 +1083,8 @@
     };
     $("#selNombre").onchange = (e) => { S.nombre = e.target.value; LS.set("aula-nombre", S.nombre); render(); };
     $("#btnNoJuntos").onclick = noJuntos;
+    $("#btnSondeos").onclick = abrirSondeos;
+    $("#btnAfinidades").onclick = porAfinidades;
     $("#btnOtraClase").onclick = otraClase;
   }
 
@@ -1349,6 +1359,7 @@
     S.claseId = +id || id; $("#selClase").value = id;
     // No se abre ninguna sola: se elige en «Distribución» o se crea una nueva
     abrir(planosClase().find((x) => x.id === planoId) || null);
+    refrescarSondeos();
   }
   function abrir(p) {
     S.plano = p; S.sel.clear(); S.alSel = null; S.hist = []; S.fut = [];
@@ -1436,6 +1447,511 @@
     } catch (e) { fallo(e); }
   }
 
+  // ─── Sondeos del alumnado ─────────────────────────────────────────────────
+  // El profesor/a abre un sondeo para una clase (código y QR). El alumnado contesta sin cuenta en sondeo.html:
+  // con quién sí, con quién no, su propuesta de clase y un mensaje. Las respuestas solo las ven quien lanza el
+  // sondeo y el tutor/a del grupo (supabase/sondeos.sql); se borran solas el 31 de agosto. Nada sale en la hoja impresa.
+  const SON = { lista: [], resp: new Map(), clase: null, abierto: null, vista: "lista", pest: "resumen", foco: null, falta: false };
+  const SON_MAX = 5;
+  const DISPOS = [
+    { id: "parejas", n: "Mesas de dos", pl: "parejas" },
+    { id: "trios", n: "Líneas de 3", pl: "trios" },
+    { id: "g3", n: "Grupos de 3", pl: "grupos", m: 3 },
+    { id: "g4", n: "Grupos de 4", pl: "grupos", m: 4 },
+    { id: "g5", n: "Grupos de 5", pl: "grupos", m: 5 },
+    { id: "g6", n: "Grupos de 6", pl: "grupos", m: 6 },
+    { id: "filas", n: "Individuales", pl: "filas" },
+  ];
+  const PLAZOS = [
+    { id: "1h", n: "Una hora", ms: 3600e3 },
+    { id: "hoy", n: "Hoy, hasta las 23:59" },
+    { id: "3d", n: "Tres días", ms: 3 * 864e5 },
+    { id: "1s", n: "Una semana", ms: 7 * 864e5 },
+    { id: "2s", n: "Dos semanas", ms: 14 * 864e5 },
+    { id: "nunca", n: "Hasta que lo cierre" },
+  ];
+  const fechaCorta = (f) => new Date(f).toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+  const fechaHora = (f) => new Date(f).toLocaleString("es-ES", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+  const sonAbierto = (s) => !s.cerrado && (!s.abierto_hasta || new Date(s.abierto_hasta) > new Date());
+  const nuevoCodigo = () => Array.from({ length: 6 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 32)]).join("");
+  const urlSondeo = (c) => location.origin + location.pathname.replace(/[^/]*$/, "") + (/vercel\.app$/.test(location.hostname) ? "sondeo" : "sondeo.html") + "?c=" + c + (DEMO ? "&demo" : "");
+  const corto = (a) => { const { nom, ape } = partes(a.nombre); return (nom + " " + inicial(ape)).trim(); };
+
+  const sonRemoto = {
+    async lista(claseId) { return ok(await sb.from("aul_sondeos").select("*").eq("curso_id", S.cursoId).eq("clase_id", claseId).order("creado", { ascending: false })); },
+    async respuestas(ids) { return ids.length ? ok(await sb.from("aul_sondeo_respuestas").select("*").in("sondeo_id", ids)) : []; },
+    async crear(s) { return ok(await sb.from("aul_sondeos").insert(s).select().single()); },
+    async cambiar(id, c) { return ok(await sb.from("aul_sondeos").update(c).eq("id", id).select().single()); },
+    async borrar(id) { ok(await sb.from("aul_sondeos").delete().eq("id", id)); },
+    async anular(id) { ok(await sb.from("aul_sondeo_respuestas").delete().eq("id", id)); },
+    async claves(claseId, nuevas) { return ok(await sb.rpc("aul_claves_clase", { p_clase: claseId, p_nuevas: !!nuevas })); },
+  };
+  // Modo prueba: en este navegador, con las mismas claves que lee sondeo.html?demo
+  const sonLocal = {
+    todos() { return LS.get("aula-sondeos-demo", []); },
+    resps() { return LS.get("aula-sondeos-demo-resp", []); },
+    async lista(claseId) { return this.todos().filter((s) => s.clase_id == claseId).sort((a, b) => b.creado.localeCompare(a.creado)); },
+    async respuestas(ids) { return this.resps().filter((r) => ids.includes(r.sondeo_id)); },
+    async crear(s) {
+      const c = claseDe(s.clase_id), r = { ...s, id: uid(), creador: S.user.email, creado: new Date().toISOString(),
+        _clase: c?.nombre, _alumnos: (S.porClase.get(s.clase_id) || []).map((a) => ({ id: a.id, nombre: a.nombre })) };
+      LS.set("aula-sondeos-demo", [...this.todos(), r]); return r;
+    },
+    async cambiar(id, c) { let r; LS.set("aula-sondeos-demo", this.todos().map((s) => (s.id === id ? (r = { ...s, ...c }) : s))); return r; },
+    async borrar(id) { LS.set("aula-sondeos-demo", this.todos().filter((s) => s.id !== id)); LS.set("aula-sondeos-demo-resp", this.resps().filter((r) => r.sondeo_id !== id)); },
+    async anular(id) { LS.set("aula-sondeos-demo-resp", this.resps().filter((r) => r.id !== id)); },
+    async claves(claseId, nuevas) {
+      const cl = LS.get("aula-claves-demo", {});
+      for (const a of S.porClase.get(claseId) || []) if (nuevas || !cl[a.id]) cl[a.id] = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+      LS.set("aula-claves-demo", cl);
+      return (S.porClase.get(claseId) || []).map((a) => ({ alumno_id: a.id, clave: cl[a.id] }));
+    },
+    // Respuestas inventadas para probar los resultados sin alumnado
+    simular(s) {
+      const als = (S.porClase.get(s.clase_id) || []).map((a) => a.id), ya = new Set(this.resps().filter((r) => r.sondeo_id === s.id).map((r) => r.alumno_id));
+      const nuevas = als.filter((id) => !ya.has(id)).slice(0, Math.max(0, als.length - 2)).map((id, i) => {
+        const cerca = als.filter((x) => x !== id && Math.abs(als.indexOf(x) - als.indexOf(id)) <= 4);
+        const si = barajar([...cerca]).slice(0, 2 + (i % 3)), resto = als.filter((x) => x !== id && !si.includes(x));
+        const no = i % 4 === 0 ? barajar(resto).slice(0, 1 + (i % 2)) : [];
+        return { id: uid(), sondeo_id: s.id, alumno_id: id, si, no, plano: null, mensaje: i % 7 === 3 ? "Veo mal de lejos, prefiero estar delante." : null, creado: new Date().toISOString() };
+      });
+      LS.set("aula-sondeos-demo-resp", [...this.resps(), ...nuevas]);
+      return nuevas.length;
+    },
+  };
+  const son = () => (DEMO || almacen === local ? sonLocal : sonRemoto);
+  const faltaTabla = (e) => /aul_sondeo|relation .* does not exist|schema cache|PGRST20/i.test(e?.message || "") || e?.code === "42P01";
+
+  async function cargarSondeos(claseId = S.claseId, conRespuestas = false) {
+    SON.clase = claseId; SON.falta = false;
+    try {
+      SON.lista = claseId ? await son().lista(claseId) : [];
+      if (conRespuestas) {
+        const rs = await son().respuestas(SON.lista.map((s) => s.id));
+        SON.resp = new Map(SON.lista.map((s) => [s.id, rs.filter((r) => r.sondeo_id === s.id)]));
+      }
+    } catch (e) {
+      SON.lista = []; SON.resp = new Map();
+      if (faltaTabla(e)) SON.falta = true; else throw e;
+    }
+  }
+  function pintarResumenSondeos() {
+    const r = $("#resSondeos"); if (!r) return;
+    if (SON.clase != S.claseId) { r.textContent = ""; return; }
+    const ab = SON.lista.filter(sonAbierto).length;
+    r.textContent = SON.falta ? "Falta activarlos" : !SON.lista.length ? "Ninguno todavía" : `${SON.lista.length} sondeo${SON.lista.length > 1 ? "s" : ""}${ab ? ` · ${ab} abierto${ab > 1 ? "s" : ""}` : ""}`;
+  }
+  async function refrescarSondeos() { try { await cargarSondeos(S.claseId); } catch (e) { console.warn(e); } pintarResumenSondeos(); }
+
+  // Disposiciones de mesas que se ofrecen al alumnado para su propuesta (geometría ya calculada: sondeo.html no la recalcula)
+  function disposicion(id, n, datos) {
+    medidasMesa(datos.mesa);
+    const mesas = [], puestos = [], muebles = [];
+    for (const it of datos.items) {
+      const t = T[it.t], { w, h } = tam(it);
+      if (t.p) {
+        mesas.push({ x: it.x, y: it.y, w, h, r: it.r || 0 });
+        t.p.forEach(([px, py], i) => { const [x, y] = aMundo(it, px, py); puestos.push({ k: it.id + ":" + i, x: r1(x), y: r1(y), w: t.sw, h: t.ph, r: it.r || 0 }); });
+      } else if (["pizarra", "pantalla", "docente", "puerta", "ventana"].includes(it.t)) muebles.push({ t: it.t, x: it.x, y: it.y, w, h, r: it.r || 0, et: t.et || "" });
+    }
+    const { ancho, fondo, mesa, plantilla, miembros, columnas, items } = datos;
+    return { id, n, ancho, fondo, mesas, puestos, muebles, datos: { ancho, fondo, mesa, plantilla, miembros, columnas, items } };
+  }
+  function disposiciones(ids, claseId) {
+    const n = (S.porClase.get(claseId) || []).length, base = S.plano && S.plano.clase_id == claseId ? D() : null;
+    const W = base?.ancho || CFG.aula?.ancho || 600, H = base?.fondo || CFG.aula?.fondo || 860;
+    medidasMesa(base?.mesa || LS.get("aula-mesa", MESA_DEF));
+    return ids.map((id) => {
+      if (id === "actual" && base) return disposicion("actual", "La de tu profesor/a", JSON.parse(JSON.stringify(base)));
+      const o = DISPOS.find((x) => x.id === id); if (!o) return null;
+      return disposicion(o.id, o.n, datosNuevos(o.pl, W, H, o.m || 4, n));
+    }).filter(Boolean);
+  }
+
+  // ── Cálculos sobre las respuestas ──
+  function analisis(rs, claseId) {
+    const ids = (S.porClase.get(claseId) || []).map((a) => a.id), en = new Set(ids);
+    const recibe = new Map(ids.map((i) => [i, 0])), recNo = new Map(ids.map((i) => [i, 0])), R = new Map();
+    for (const r of rs) {
+      R.set(r.alumno_id, r);
+      r.si.forEach((b) => en.has(b) && recibe.set(b, recibe.get(b) + 1));
+      r.no.forEach((b) => en.has(b) && recNo.set(b, recNo.get(b) + 1));
+    }
+    const mutuas = [], noMutuos = [], noUno = [];
+    for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) {
+      const a = ids[i], b = ids[j], ra = R.get(a), rb = R.get(b);
+      if (ra?.si.includes(b) && rb?.si.includes(a)) mutuas.push([a, b]);
+      const na = ra?.no.includes(b), nb = rb?.no.includes(a);
+      if (na && nb) noMutuos.push([a, b]); else if (na || nb) noUno.push(na ? [a, b] : [b, a]);
+    }
+    return { ids, R, recibe, recNo, mutuas, noMutuos, noUno };
+  }
+  // Puntuación de una colocación: cada uno cerca de alguien que eligió (mejor en su mesa), nadie junto a quien
+  // no quiere ni a sus «no deben sentarse juntos», y quien lo necesita en las primeras filas
+  function puntuar(d, as, A, ctx) {
+    const donde = new Map(Object.entries(as).map(([k, v]) => [v, k]));
+    let pts = 0, felices = 0, total = 0, choques = 0;
+    for (const [a, k] of donde) {
+      const r = A.R.get(a);
+      if (ctx.div.has(a) && !ctx.delante.has(k)) pts -= 8;
+      if (!r) continue;
+      total++;
+      const kk = r.si.map((b) => donde.get(b)).filter(Boolean);
+      const enMesa = kk.some((k2) => ctx.misma(k, k2)), cerca = enMesa || kk.some((k2) => ctx.cerca(k, k2));
+      if (cerca) felices++;
+      pts += enMesa ? 3 : cerca ? 1.5 : 0;
+      for (const b of r.no) { const k2 = donde.get(b); if (k2 && ctx.cerca(k, k2)) { choques++; pts -= 10; } }
+    }
+    for (const [a, b] of d.noJuntos) { const ka = donde.get(a), kb = donde.get(b); if (ka && kb && ctx.cerca(ka, kb)) pts -= 20; }
+    // Quien no ha elegido nadie: mejor cerca de alguien que le eligió
+    for (const [a, k] of donde) if (!A.recibe.get(a) && ctx.eligenA.get(a)?.some((b) => donde.get(b) && ctx.cerca(k, donde.get(b)))) pts += 1;
+    return { pts, felices, total, choques };
+  }
+  function contexto(d, A) {
+    const pos = new Map(puestosDe(d).map((p) => [p.k, p]));
+    const eligenA = new Map();
+    for (const [a, r] of A.R) for (const b of r.si) { if (!eligenA.has(b)) eligenA.set(b, []); eligenA.get(b).push(a); }
+    return {
+      misma: (k1, k2) => pos.get(k1)?.it === pos.get(k2)?.it,
+      cerca: (k1, k2) => { const a = pos.get(k1), b = pos.get(k2); return !!a && !!b && k1 !== k2 && (a.it === b.it || Math.hypot(a.x - b.x, a.y - b.y) < 100); },
+      div: new Set(Object.keys(diversidadDe(d)).map(Number)), delante: new Set(puestosDelante(d)), eligenA,
+    };
+  }
+  function sentarAfinidades(d, als, A) {
+    const fijos = new Set(d.fijos), base = {};
+    for (const k in d.asientos) if (fijos.has(d.asientos[k])) base[k] = d.asientos[k];
+    const mover = als.filter((a) => !fijos.has(a.id)).map((a) => a.id);
+    const libres = ordenados(d).filter((p) => !(p.k in base)).map((p) => p.k);
+    const ctx = contexto(d, A);
+    let mejor = null, mejorP = -Infinity;
+    for (let intento = 0; intento < 4; intento++) {
+      const sitio = [...barajar([...mover]), ...Array(Math.max(0, libres.length - mover.length)).fill(null)];
+      const as = () => { const o = { ...base }; libres.forEach((k, i) => { if (sitio[i] != null) o[k] = sitio[i]; }); return o; };
+      let p = puntuar(d, as(), A, ctx).pts;
+      for (let n = 0; n < 2500; n++) {
+        const i = Math.floor(Math.random() * libres.length), j = Math.floor(Math.random() * libres.length);
+        if (i === j || (sitio[i] == null && sitio[j] == null)) continue;
+        [sitio[i], sitio[j]] = [sitio[j], sitio[i]];
+        const q = puntuar(d, as(), A, ctx).pts;
+        if (q >= p) p = q; else [sitio[i], sitio[j]] = [sitio[j], sitio[i]];
+      }
+      if (p > mejorP) { mejorP = p; mejor = as(); }
+    }
+    d.asientos = mejor || base;
+    ponerDelante(d);
+    return puntuar(d, d.asientos, A, ctx);
+  }
+  async function porAfinidades() {
+    if (!editable()) return avisoLectura();
+    try { await cargarSondeos(S.plano.clase_id, true); } catch (e) { return fallo(e); }
+    pintarResumenSondeos();
+    const s = SON.lista.find((x) => (SON.resp.get(x.id) || []).length);
+    if (!s) return toast(SON.falta ? "Los sondeos aún no están activados en esta web." : "Esta clase todavía no tiene ningún sondeo con respuestas. Ábrelo en «Sondeos del alumnado».", "error", 6000);
+    const A = analisis(SON.resp.get(s.id), S.plano.clase_id);
+    let r;
+    if (cambio((d) => (r = sentarAfinidades(d, alumnosPlano(), A))))
+      toast(`Con «${s.nombre}»: ${r.felices} de ${r.total} tienen cerca a alguien que eligieron` + (r.choques ? ` · ${r.choques} «no» quedan juntos (revisa las mesas)` : " · ningún «no» queda junto"), "ok", 6000);
+  }
+
+  // ── Ventana de sondeos ──
+  async function abrirSondeos() {
+    if (!S.claseId) return toast("Elige antes la clase.");
+    const dlg = $("#dlgSon");
+    $("#sonCuerpo").innerHTML = `<p class="vacio">Cargando…</p>`;
+    if (!dlg.open) dlg.showModal();
+    try { await cargarSondeos(S.claseId, true); } catch (e) { dlg.close(); return fallo(e); }
+    SON.vista = "lista"; SON.abierto = null;
+    pintarSondeos(); pintarResumenSondeos();
+  }
+  function pintarSondeos() {
+    const c = claseDe(SON.clase), cuerpo = $("#sonCuerpo"), tut = soyTutor(SON.clase);
+    $("#sonTitulo").textContent = `Sondeos del alumnado · ${c?.nombre || ""}`;
+    if (SON.falta) {
+      cuerpo.innerHTML = `<p class="info-caja">Los sondeos todavía no están activados: falta ejecutar <code>supabase/sondeos.sql</code> en Supabase. El resto de la web funciona igual.</p>`;
+      return;
+    }
+    if (SON.vista === "nuevo") return pintarNuevo(cuerpo);
+    if (SON.vista === "sondeo") return pintarSondeo(cuerpo);
+    const n = (S.porClase.get(SON.clase) || []).length;
+    cuerpo.innerHTML = `<p class="dlg-sub">El alumnado contesta desde el móvil con un código o un QR, sin cuenta: con quién le gustaría sentarse, con quién no y, si quiere, su propuesta de clase.
+        Las respuestas las ven <b>solo quien lanza el sondeo y el tutor/a del grupo</b>${tut ? " (tú)" : ""}; no salen en la hoja impresa y se borran solas el 31 de agosto.</p>
+      ${SON.lista.length ? `<ul class="son-lista">${SON.lista.map((s) => {
+        const nr = (SON.resp.get(s.id) || []).length, ab = sonAbierto(s);
+        return `<li><button type="button" data-ver="${s.id}"><span><b>${esc(s.nombre)}</b><small>${esc(fechaCorta(s.creado))} · ${nr} de ${n} respuestas${s.creador !== S.user.email ? " · lo lanzó " + esc(s.creador_nombre || s.creador) : ""}</small></span>
+          <span class="son-estado${ab ? " abierto" : ""}">${ab ? "Abierto" : "Cerrado"}</span></button></li>`; }).join("")}</ul>`
+        : `<p class="vacio">Esta clase todavía no tiene ningún sondeo.</p>`}
+      <div class="grupo-btn" style="margin-top:12px"><button class="btn primario" type="button" id="sonNuevo">+ Nuevo sondeo</button></div>`;
+    $("#sonNuevo").onclick = () => { SON.vista = "nuevo"; pintarSondeos(); };
+    $$("[data-ver]", cuerpo).forEach((b) => (b.onclick = () => { SON.abierto = SON.lista.find((s) => s.id === b.dataset.ver); SON.vista = "sondeo"; SON.pest = "resumen"; SON.foco = null; pintarSondeos(); }));
+  }
+
+  function pintarNuevo(cuerpo) {
+    const hayActual = S.plano && S.plano.clase_id == SON.clase;
+    const opDisp = [...(hayActual ? [{ id: "actual", n: "La de la distribución abierta" }] : []), ...DISPOS];
+    const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+    cuerpo.innerHTML = `<form id="sonForm" class="son-form">
+      <label class="campo">Nombre <input name="nombre" required maxlength="80" value="Sondeo de ${meses[new Date().getMonth()]}"></label>
+      <h3>Preguntas</h3>
+      <label class="check son-preg"><input type="checkbox" name="si" checked><span><b>¿Con quién te gustaría sentarte?</b><small>Hasta ${SON_MAX} compañeros/as.</small></span></label>
+      <label class="check son-preg"><input type="checkbox" name="no" checked><span><b>¿Con quién preferirías no sentarte?</b><small>Hasta ${SON_MAX}. Opcional para el alumnado. Nadie de la clase lo ve.</small></span></label>
+      <label class="check son-preg"><input type="checkbox" name="plano" checked><span><b>Haz tu propuesta de clase</b><small>Opcional para el alumnado: coloca a toda la clase en las mesas.</small></span></label>
+      <div class="son-disp-op" id="sonDispOp">
+        <label class="check"><input type="radio" name="dmodo" value="tutor" checked><span><b>La elijo yo</b></span></label>
+        <select name="dtutor" class="son-sel">${opDisp.map((o) => `<option value="${o.id}">${esc(o.n)}</option>`).join("")}</select>
+        <label class="check"><input type="radio" name="dmodo" value="alumno"><span><b>Que elija el alumnado entre:</b></span></label>
+        <div class="son-chk">${opDisp.map((o) => `<label class="check"><input type="checkbox" name="dalumno" value="${o.id}"${["parejas", "trios", "g4", "g6"].includes(o.id) ? " checked" : ""}> ${esc(o.n)}</label>`).join("")}</div>
+      </div>
+      <label class="check son-preg"><input type="checkbox" name="msg" checked><span><b>¿Algo que quieras contarme sobre dónde sentarte?</b><small>Texto libre, opcional (máximo 300 caracteres).</small></span></label>
+      <div class="dlg-rejilla" style="margin-top:12px">
+        <label class="campo">Se puede contestar <select name="plazo">${PLAZOS.map((p) => `<option value="${p.id}"${p.id === "3d" ? " selected" : ""}>${p.n}</option>`).join("")}</select></label>
+      </div>
+      <h3>Cómo se identifica el alumnado</h3>
+      <label class="check son-preg"><input type="radio" name="ident" value="nombre" checked><span><b>Solo eligiendo su nombre</b><small>Más rápido. Si alguien contesta con otro nombre, anulas esa respuesta.</small></span></label>
+      <label class="check son-preg"><input type="radio" name="ident" value="clave"><span><b>Nombre y clave personal de 4 cifras</b><small>Más seguro, recomendable si el plazo es de varios días. Imprimes una hoja con las claves para recortar; sirven para todo el curso.</small></span></label>
+      <p class="info-caja">Lo ven <b>quien lo lanza y el tutor/a del grupo</b>. El resto del claustro no, aunque compartas la distribución. Se guarda todo el curso y se borra solo el 31 de agosto.</p>
+      <div class="dlg-botones"><button class="btn" type="button" id="sonCancelar">Cancelar</button><button class="btn primario" type="submit">Abrir sondeo y sacar el QR</button></div>
+    </form>`;
+    const f = $("#sonForm");
+    const verDisp = () => ($("#sonDispOp").hidden = !f.plano.checked);
+    f.plano.onchange = verDisp; verDisp();
+    f.dtutor.onchange = () => (f.dmodo.value = "tutor");
+    $$("[name=dalumno]", f).forEach((x) => (x.onchange = () => (f.dmodo.value = "alumno")));
+    $("#sonCancelar").onclick = () => { SON.vista = "lista"; pintarSondeos(); };
+    f.onsubmit = async (e) => {
+      e.preventDefault();
+      const fd = new FormData(f), preguntas = { si: fd.has("si"), no: fd.has("no"), plano: fd.has("plano"), msg: fd.has("msg") };
+      if (!preguntas.si && !preguntas.no && !preguntas.plano) return toast("Marca al menos una pregunta.", "error");
+      const ids = !preguntas.plano ? [] : fd.get("dmodo") === "alumno" ? fd.getAll("dalumno") : [fd.get("dtutor")];
+      if (preguntas.plano && !ids.length) return toast("Marca al menos una disposición de mesas para el alumnado.", "error");
+      const pz = PLAZOS.find((p) => p.id === fd.get("plazo")), hoy = new Date();
+      const hasta = pz.ms ? new Date(Date.now() + pz.ms) : pz.id === "hoy" ? new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59) : null;
+      const fila = { curso_id: S.cursoId, clase_id: SON.clase, creador_nombre: S.user.nombre, nombre: String(fd.get("nombre")).trim() || "Sondeo",
+        preguntas, max_si: SON_MAX, max_no: SON_MAX, identificacion: fd.get("ident"), disposiciones: disposiciones(ids, SON.clase), abierto_hasta: hasta?.toISOString() || null };
+      $("button[type=submit]", f).disabled = true;
+      try {
+        let s = null;
+        for (let i = 0; i < 3 && !s; i++) {
+          try { s = await son().crear({ ...fila, codigo: nuevoCodigo() }); }
+          catch (e2) { if (!/duplicate|unique/i.test(e2.message || "") || i === 2) throw e2; }
+        }
+        if (s.identificacion === "clave") await son().claves(SON.clase, false);
+        SON.lista.unshift(s); SON.resp.set(s.id, []); SON.abierto = s; SON.vista = "sondeo"; SON.pest = "resumen";
+        pintarSondeos(); pintarResumenSondeos(); toast("Sondeo abierto. Ya pueden contestar.");
+      } catch (e2) { $("button[type=submit]", f).disabled = false; fallo(e2); }
+    };
+  }
+
+  function qrSvg(texto) {
+    if (!window.qrcode) return "";
+    const q = qrcode(0, "M"); q.addData(texto); q.make();
+    return q.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+  }
+  function pintarSondeo(cuerpo) {
+    const s = SON.abierto, rs = SON.resp.get(s.id) || [], als = S.porClase.get(s.clase_id) || [], ab = sonAbierto(s);
+    const hechos = new Set(rs.map((r) => r.alumno_id)), faltan = als.filter((a) => !hechos.has(a.id));
+    const url = urlSondeo(s.codigo);
+    const PEST = [["resumen", "Resumen"], ["alumno", "Por alumno/a"], ...(s.preguntas.plano ? [["propuestas", "Propuestas del alumnado"]] : []), ...(SON.lista.length > 1 ? [["curso", "A lo largo del curso"]] : [])];
+    cuerpo.innerHTML = `<div class="son-cab"><button class="btn mini" type="button" id="sonVolver">‹ Todos los sondeos</button>
+        <b>${esc(s.nombre)}</b><span class="son-estado${ab ? " abierto" : ""}">${ab ? "Abierto" : "Cerrado"}</span></div>
+      ${ab ? `<div class="son-qr">
+        <div class="son-qr-img" aria-label="Código QR del sondeo">${qrSvg(url)}</div>
+        <div class="son-qr-txt"><span class="son-et">Código</span><span class="son-codigo-g">${s.codigo.slice(0, 3)} ${s.codigo.slice(3)}</span>
+          <span class="son-url">${esc(url.replace(/^https?:\/\//, "").replace(/\?.*$/, ""))}</span>
+          <span class="son-et">${s.abierto_hasta ? "Abierto hasta el " + esc(fechaHora(s.abierto_hasta)) : "Abierto hasta que lo cierres"}${s.identificacion === "clave" ? " · con clave personal" : ""}</span>
+          <div class="grupo-btn"><button class="btn mini" type="button" id="sonCopiar">Copiar enlace</button><button class="btn mini" type="button" id="sonProyectar">Proyectar</button>
+            ${s.identificacion === "clave" ? `<button class="btn mini" type="button" id="sonClaves">Hoja de claves</button>` : ""}
+            <button class="btn mini peligro" type="button" id="sonCerrar">Cerrar ya</button></div></div></div>` : ""}
+      <div class="son-progreso"><b>${rs.length} de ${als.length} han contestado</b><div class="son-barra"><i style="width:${als.length ? (rs.length / als.length) * 100 : 0}%"></i></div>
+        ${ab && faltan.length ? `<div class="son-faltan"><span>Faltan:</span> ${faltan.map((a) => `<span class="son-etq">${esc(corto(a))}</span>`).join("")}</div>` : ""}
+        <div class="grupo-btn"><button class="btn mini" type="button" id="sonActualizar">Actualizar</button>
+          ${!ab ? `<button class="btn mini" type="button" id="sonReabrir">Reabrir una semana</button>` : ""}
+          ${DEMO ? `<button class="btn mini" type="button" id="sonSimular">Simular respuestas (modo prueba)</button><a class="btn mini" href="${esc(url)}" target="_blank" rel="noopener">Contestar como alumno/a</a>` : ""}
+          <button class="btn mini peligro" type="button" id="sonBorrar">Borrar sondeo</button></div></div>
+      ${rs.length ? `<div class="son-pests" role="tablist">${PEST.map(([k, t]) => `<button type="button" role="tab" data-pest="${k}" aria-selected="${SON.pest === k}">${t}</button>`).join("")}</div><div id="sonPest"></div>`
+        : `<p class="vacio">Todavía no ha contestado nadie.</p>`}`;
+    $("#sonVolver").onclick = () => { SON.vista = "lista"; pintarSondeos(); };
+    $("#sonActualizar").onclick = async () => { try { await cargarSondeos(SON.clase, true); SON.abierto = SON.lista.find((x) => x.id === s.id) || s; pintarSondeos(); pintarResumenSondeos(); } catch (e) { fallo(e); } };
+    $("#sonBorrar").onclick = async () => {
+      if (!(await confirmarSon(`¿Borrar «${s.nombre}»?`, "Se borran el sondeo y todas sus respuestas. No se puede deshacer."))) return;
+      try { await son().borrar(s.id); SON.lista = SON.lista.filter((x) => x.id !== s.id); SON.vista = "lista"; pintarSondeos(); pintarResumenSondeos(); toast("Sondeo borrado"); } catch (e) { fallo(e); }
+    };
+    const cambiar = async (c, msg) => { try { const r = await son().cambiar(s.id, c); Object.assign(s, r || c); pintarSondeos(); pintarResumenSondeos(); toast(msg); } catch (e) { fallo(e); } };
+    if ($("#sonCerrar")) $("#sonCerrar").onclick = async () => { if (await confirmarSon("¿Cerrar el sondeo?", "El código deja de funcionar y ya no se puede contestar. Puedes reabrirlo después.")) cambiar({ cerrado: true }, "Sondeo cerrado"); };
+    if ($("#sonReabrir")) $("#sonReabrir").onclick = () => cambiar({ cerrado: false, abierto_hasta: new Date(Date.now() + 7 * 864e5).toISOString() }, "Sondeo abierto una semana más");
+    if ($("#sonCopiar")) $("#sonCopiar").onclick = async () => { try { await navigator.clipboard.writeText(url); toast("Enlace copiado: pégalo en Classroom o Teams"); } catch { toast(url, "ok", 9000); } };
+    if ($("#sonProyectar")) $("#sonProyectar").onclick = () => proyectar(s, url);
+    if ($("#sonClaves")) $("#sonClaves").onclick = () => hojaClaves(s.clase_id);
+    if ($("#sonSimular")) $("#sonSimular").onclick = async () => { const n = sonLocal.simular(s); await cargarSondeos(SON.clase, true); SON.abierto = SON.lista.find((x) => x.id === s.id); pintarSondeos(); toast(`${n} respuestas inventadas`); };
+    $$("[data-pest]", cuerpo).forEach((b) => (b.onclick = () => { SON.pest = b.dataset.pest; pintarSondeos(); }));
+    if (!rs.length) return;
+    if (!PEST.some(([k]) => k === SON.pest)) SON.pest = "resumen";
+    const A = analisis(rs, s.clase_id), caja = $("#sonPest");
+    ({ resumen: pestResumen, alumno: pestAlumno, propuestas: pestPropuestas, curso: pestCurso })[SON.pest](caja, s, A);
+  }
+  // Confirmación dentro de la ventana de sondeos (el diálogo general no se puede abrir encima)
+  function confirmarSon(titulo, texto) {
+    const d = $("#dlgSonConf");
+    $("#dlgSonConfForm").innerHTML = `<h2>${esc(titulo)}</h2><p class="dlg-sub">${esc(texto)}</p><div class="dlg-botones"><button class="btn" value="no">Cancelar</button><button class="btn borrar" value="si">Sí</button></div>`;
+    return new Promise((res) => { d.onclose = () => res(d.returnValue === "si"); d.returnValue = ""; d.showModal(); });
+  }
+  function proyectar(s, url) {
+    const d = $("#dlgSonProy");
+    $("#dlgSonProyCuerpo").innerHTML = `<div class="son-proy"><div class="son-proy-qr">${qrSvg(url)}</div><div><p>Abre la cámara del móvil y apunta al código QR, o entra en</p>
+      <p class="son-url-g">${esc(url.replace(/^https?:\/\//, "").replace(/\?.*$/, ""))}</p><p>y escribe el código</p><p class="son-codigo-g gigante">${s.codigo.slice(0, 3)} ${s.codigo.slice(3)}</p></div></div>
+      <div class="dlg-botones"><button class="btn primario" value="si">Cerrar</button></div>`;
+    d.showModal();
+  }
+  async function hojaClaves(claseId) {
+    let cl;
+    try { cl = await son().claves(claseId, false); } catch (e) { return fallo(e); }
+    const mapa = new Map(cl.map((x) => [x.alumno_id, x.clave])), c = claseDe(claseId), url = urlSondeo("").replace(/\?c=.*$/, "");
+    $("#impresion").innerHTML = `<div class="hoja vertical hoja-claves">
+      <header class="imp-cab"><img src="logo.svg" alt="Salesianas Nervión"><div class="imp-tit"><span class="imp-eyebrow">Curso ${esc(S.cursoNombre)}</span><h1>Claves para los sondeos</h1><p>${esc(c?.nombre || "")} · recorta y entrega a cada alumno/a su tarjeta</p></div><div class="imp-meta">Sirven para todos los<br>sondeos del curso</div></header>
+      <div class="imp-franja"><i></i><i></i><i></i></div>
+      <div class="claves">${(S.porClase.get(claseId) || []).map((a) => `<div class="clave-t"><b>${esc(nombreLista(a))}</b><span>Tu clave: <strong>${esc(mapa.get(a.id) || "—")}</strong></span><small>${esc(url.replace(/^https?:\/\//, ""))} · no se la enseñes a nadie</small></div>`).join("")}</div>
+      <footer class="imp-pie"><span><b>Escuelas Salesianas María Auxiliadora</b> · Nervión (Sevilla)</span><span>Si pierdes tu tarjeta, pídele otra clave a tu profesor/a</span></footer></div>`;
+    $("#estiloPagina").textContent = "@page { size: A4 portrait; margin: 0; }";
+    await Promise.race([document.fonts?.ready, new Promise((r) => setTimeout(r, 1200))]);
+    S.imprimiendo = true; window.print(); S.imprimiendo = false;
+  }
+
+  function pestResumen(caja, s, A) {
+    const nom = (id) => esc(corto(S.alumnos.get(id) || { nombre: "?" }));
+    const sinElegir = A.ids.filter((i) => A.R.size && !A.recibe.get(i)), variosNo = A.ids.filter((i) => A.recNo.get(i) >= 2);
+    const top = [...A.ids].sort((a, b) => A.recibe.get(b) - A.recibe.get(a)).filter((i) => A.recibe.get(i)).slice(0, 5);
+    const plano = S.plano && S.plano.clase_id == s.clase_id && editable();
+    const msgs = [...A.R.values()].filter((r) => r.mensaje);
+    caja.innerHTML = `<div class="son-cifras">
+        <div class="ok"><b>${A.mutuas.length}</b><span>parejas que se eligen mutuamente</span></div>
+        <div class="${sinElegir.length ? "av" : ""}"><b>${sinElegir.length}</b><span>sin ninguna elección</span></div>
+        <div class="${A.noMutuos.length ? "av" : ""}"><b>${A.noMutuos.length}</b><span>rechazos mutuos</span></div>
+        <div class="${variosNo.length ? "av" : ""}"><b>${variosNo.length}</b><span>con 2 o más «no»</span></div></div>
+      <div class="son-rej">
+        <div><h3>Sociograma</h3>
+          <div class="son-socio-op"><label class="check"><input type="checkbox" id="sonVerSi" checked> Elecciones</label><label class="check"><input type="checkbox" id="sonVerNo"${s.preguntas.no ? " checked" : ""}> Rechazos</label><span>Toca un nombre para ver solo sus relaciones.</span></div>
+          <div id="sonSocio"></div>
+          <div class="son-leyenda"><span><i class="l-mutua"></i>Se eligen mutuamente</span><span><i class="l-si"></i>Uno elige al otro</span><span><i class="l-no"></i>No quiere sentarse con</span><span><i class="l-sola"></i>Nadie le ha elegido</span></div></div>
+        <div><h3>A tener en cuenta</h3>
+          ${sinElegir.length || variosNo.length ? `<p class="info-caja aviso">${sinElegir.map((i) => `<b>${nom(i)}</b> no ha sido elegido/a por nadie${A.recNo.get(i) ? ` y recibe ${A.recNo.get(i)} «no»` : ""}.`).join("<br>")}${variosNo.filter((i) => !sinElegir.includes(i)).map((i) => `<br><b>${nom(i)}</b> recibe ${A.recNo.get(i)} «no».`).join("")}<br>Conviene hablarlo con Orientación antes de colocar.</p>` : `<p class="son-nota">Nadie se queda sin elegir.</p>`}
+          ${s.preguntas.no ? `<h3>Rechazos mutuos</h3><p>${A.noMutuos.length ? A.noMutuos.map(([a, b]) => `${nom(a)} y ${nom(b)}`).join(" · ") : "Ninguno."}</p>
+            ${A.noMutuos.length || A.noUno.length ? `<div class="grupo-btn">${A.noMutuos.length ? `<button class="btn mini" type="button" data-nj="mutuos"${plano ? "" : " disabled"}>Pasar los mutuos a «No deben sentarse juntos»</button>` : ""}<button class="btn mini" type="button" data-nj="todos"${plano ? "" : " disabled"}>Pasar todos los «no»</button></div>
+            ${plano ? "" : `<p class="son-nota">Para pasarlos, abre antes una distribución tuya de esta clase.</p>`}` : ""}` : ""}
+          ${top.length ? `<h3>Más elegidos</h3><p>${top.map((i) => `${nom(i)} (${A.recibe.get(i)})`).join(" · ")}</p>` : ""}
+          ${msgs.length ? `<h3>Mensajes del alumnado</h3><ul class="son-msgs">${msgs.map((r) => `<li><b>${nom(r.alumno_id)}:</b> ${esc(r.mensaje)}</li>`).join("")}</ul>` : ""}
+          ${plano ? `<div class="grupo-btn" style="margin-top:14px"><button class="btn pri" type="button" id="sonAfinidades">Sentar por afinidades en «${esc(S.plano.nombre)}»</button></div>` : ""}
+        </div></div>
+      <p class="son-nota">Nada de esta ventana sale en la hoja impresa ni lo ve el resto del claustro.</p>`;
+    const pintarSocio = () => { $("#sonSocio").innerHTML = sociograma(A); $$("[data-nodo]", caja).forEach((g) => (g.onclick = () => { SON.foco = SON.foco === +g.dataset.nodo ? null : +g.dataset.nodo; pintarSocio(); })); };
+    $("#sonVerSi").onchange = $("#sonVerNo").onchange = pintarSocio; pintarSocio();
+    $$("[data-nj]", caja).forEach((b) => (b.onclick = () => {
+      const pares = b.dataset.nj === "mutuos" ? A.noMutuos : [...A.noMutuos, ...A.noUno];
+      let n = 0;
+      cambio((d) => { const k = ([a, b2]) => [a, b2].sort().join("|"), hay = new Set(d.noJuntos.map(k)); for (const p of pares) if (!hay.has(k(p))) { d.noJuntos.push([...p]); hay.add(k(p)); n++; } });
+      toast(n ? `${n} pareja(s) añadidas a «No deben sentarse juntos» de «${S.plano.nombre}»` : "Ya estaban todas");
+    }));
+    if ($("#sonAfinidades")) $("#sonAfinidades").onclick = () => {
+      let r;
+      if (cambio((d) => (r = sentarAfinidades(d, alumnosPlano(), A)))) {
+        $("#dlgSon").close();
+        toast(`${r.felices} de ${r.total} tienen cerca a alguien que eligieron` + (r.choques ? ` · ${r.choques} «no» quedan juntos (revisa las mesas)` : " · ningún «no» queda junto"), "ok", 6000);
+      }
+    };
+  }
+  function sociograma(A) {
+    const verSi = $("#sonVerSi")?.checked !== false, verNo = !!$("#sonVerNo")?.checked;
+    // Orden en el círculo: por grupos de amistad (los que se eligen, juntos)
+    const orden = [], visto = new Set(), vecinos = (a) => A.ids.filter((b) => A.R.get(a)?.si.includes(b) || A.R.get(b)?.si.includes(a));
+    for (const a of [...A.ids].sort((x, y) => A.recibe.get(y) - A.recibe.get(x))) {
+      if (visto.has(a)) continue;
+      const cola = [a]; visto.add(a);
+      while (cola.length) { const x = cola.shift(); orden.push(x); for (const y of vecinos(x)) if (!visto.has(y)) { visto.add(y); cola.push(y); } }
+    }
+    const N = orden.length, W = 560, H = 520, cx = W / 2, cy = H / 2, rad = 205, pos = new Map();
+    orden.forEach((a, i) => { const t = (i / N) * Math.PI * 2 - Math.PI / 2; pos.set(a, [cx + rad * Math.cos(t), cy + rad * Math.sin(t), t]); });
+    const f = SON.foco, ten = (a, b) => (f != null && a !== f && b !== f ? " tenue" : "");
+    let l = "";
+    if (verSi) for (const [a, r] of A.R) for (const b of r.si) {
+      if (!pos.has(b)) continue;
+      const mut = A.R.get(b)?.si.includes(a); if (mut && a > b) continue;
+      const [x1, y1] = pos.get(a), [x2, y2] = pos.get(b);
+      l += `<line class="si${mut ? " mutua" : ""}${ten(a, b)}" x1="${r1(x1)}" y1="${r1(y1)}" x2="${r1(x2)}" y2="${r1(y2)}"${mut ? "" : ` marker-end="url(#sonFl)"`}/>`;
+    }
+    if (verNo) for (const [a, r] of A.R) for (const b of r.no) {
+      if (!pos.has(b)) continue;
+      const [x1, y1] = pos.get(a), [x2, y2] = pos.get(b);
+      l += `<line class="no${ten(a, b)}" x1="${r1(x1)}" y1="${r1(y1)}" x2="${r1(x2)}" y2="${r1(y2)}"/>`;
+    }
+    let n = "";
+    for (const a of orden) {
+      const [x, y, t] = pos.get(a), lx = cx + (rad + 16) * Math.cos(t), ly = cy + (rad + 16) * Math.sin(t);
+      const anc = Math.cos(t) > 0.2 ? "start" : Math.cos(t) < -0.2 ? "end" : "middle";
+      n += `<g data-nodo="${a}" role="button" tabindex="0"><circle class="nodo${A.R.size && !A.recibe.get(a) ? " sola" : ""}${f === a ? " sel" : ""}" cx="${r1(x)}" cy="${r1(y)}" r="9"/><text x="${r1(lx)}" y="${r1(ly + 4)}" text-anchor="${anc}"${A.R.has(a) ? "" : ` class="sin-resp"`}>${esc(corto(S.alumnos.get(a) || { nombre: "?" }))}</text></g>`;
+    }
+    return `<svg class="son-socio" viewBox="-70 0 ${W + 140} ${H}" role="img" aria-label="Sociograma de la clase"><defs><marker id="sonFl" viewBox="0 0 10 10" refX="17" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" class="flecha"/></marker></defs>${l}${n}</svg>`;
+  }
+  function pestAlumno(caja, s, A) {
+    const als = S.porClase.get(s.clase_id) || [], sel = A.ids.includes(SON.foco) ? SON.foco : als[0]?.id, r = A.R.get(sel);
+    const lista = (ids) => ids.map((i) => esc(nombreLista(S.alumnos.get(i) || { nombre: "?" }))).join(", ");
+    const eligen = [...A.R].filter(([, x]) => x.si.includes(sel)).map(([a]) => a), noA = [...A.R].filter(([, x]) => x.no.includes(sel)).map(([a]) => a);
+    caja.innerHTML = `<label class="campo" style="max-width:340px">Alumno/a <select id="sonSelAl">${als.map((a) => `<option value="${a.id}"${a.id === sel ? " selected" : ""}>${esc(nombreLista(a))}${A.R.has(a.id) ? "" : " (sin contestar)"}</option>`).join("")}</select></label>
+      <table class="son-tabla"><tbody>
+        ${s.preguntas.si ? `<tr><th>Le gustaría sentarse con</th><td>${r ? lista(r.si) || "—" : "<i>No ha contestado</i>"}</td></tr>` : ""}
+        ${s.preguntas.no ? `<tr><th>Preferiría no sentarse con</th><td>${r ? lista(r.no) || "nadie" : "—"}</td></tr>` : ""}
+        ${s.preguntas.si ? `<tr><th>Le eligen</th><td>${lista(eligen) || `<span class="son-etq av">Nadie</span>`}</td></tr>` : ""}
+        ${s.preguntas.no ? `<tr><th>No quieren sentarse con</th><td>${lista(noA) || "nadie"}</td></tr>` : ""}
+        ${s.preguntas.msg ? `<tr><th>Mensaje</th><td>${r?.mensaje ? esc(r.mensaje) : "—"}</td></tr>` : ""}
+        ${r ? `<tr><th>Contestó</th><td>${esc(fechaHora(r.creado))}</td></tr>` : ""}
+      </tbody></table>
+      ${r ? `<div class="grupo-btn"><button class="btn mini peligro" type="button" id="sonAnular">Anular esta respuesta</button></div>` : ""}
+      <p class="son-nota">Si alguien contestó con un nombre que no era el suyo, anula la respuesta: esa persona podrá volver a contestar mientras el sondeo esté abierto.</p>`;
+    $("#sonSelAl").onchange = (e) => { SON.foco = +e.target.value; pintarSondeos(); };
+    if ($("#sonAnular")) $("#sonAnular").onclick = async () => {
+      if (!(await confirmarSon("¿Anular la respuesta?", `Se borra lo que contestó ${nombreLista(S.alumnos.get(sel))}. Podrá volver a contestar si el sondeo sigue abierto.`))) return;
+      try { await son().anular(r.id); SON.resp.set(s.id, (SON.resp.get(s.id) || []).filter((x) => x.id !== r.id)); pintarSondeos(); toast("Respuesta anulada"); } catch (e) { fallo(e); }
+    };
+  }
+  function pestPropuestas(caja, s, A) {
+    const props = [...A.R.values()].filter((r) => r.plano?.asientos && Object.keys(r.plano.asientos).length);
+    const datosDe = (r) => {
+      const dp = s.disposiciones.find((x) => x.id === r.plano.disp) || s.disposiciones[0]; if (!dp) return null;
+      const d = { ...JSON.parse(JSON.stringify(dp.datos)), asientos: {}, fijos: [], noJuntos: [], extra: [], excluidos: [], niveles: {}, diversidad: {}, filasDelante: 2 };
+      const validos = new Set(puestosDe(d).map((p) => p.k)), en = new Set(A.ids);
+      for (const [k, v] of Object.entries(r.plano.asientos)) if (validos.has(k) && en.has(+v)) d.asientos[k] = +v;
+      return { d, dp };
+    };
+    caja.innerHTML = !props.length ? `<p class="vacio">Nadie ha hecho su propuesta de clase.</p>`
+      : `<p class="dlg-sub">${props.length} alumno${props.length > 1 ? "s/as han" : "/a ha"} hecho su propuesta. «Contentos»: quien tiene cerca a alguien que eligió.</p>
+      <div class="son-props">${props.map((r) => {
+        const x = datosDe(r); if (!x) return "";
+        const ev = puntuar(x.d, x.d.asientos, A, contexto(x.d, A));
+        const { vb, html } = svgPlano(x.d, { rejilla: false, margen: 10, vista: "alumnado", nombre: "ni", alumnos: S.porClase.get(s.clase_id) || [] });
+        return `<div class="son-prop"><div class="son-prop-cab"><b>${esc(nombreLista(S.alumnos.get(r.alumno_id) || { nombre: "?" }))}</b><small>${esc(x.dp.n)}</small>
+          <span class="son-etq ${ev.choques ? "av" : "ok"}">${ev.felices}/${ev.total} contentos${ev.choques ? ` · ${ev.choques} choque${ev.choques > 1 ? "s" : ""}` : ""}</span></div>
+          <svg viewBox="${vb}" xmlns="http://www.w3.org/2000/svg">${html}</svg>
+          <button class="btn mini" type="button" data-usar="${r.id}">Usar como base</button></div>`; }).join("")}</div>
+      <p class="son-nota">«Usar como base» la copia como una distribución nueva tuya de esta clase, que luego retocas, imprimes o compartes como cualquier otra.</p>`;
+    $$("[data-usar]", caja).forEach((b) => (b.onclick = async () => {
+      const r = props.find((x) => String(x.id) === b.dataset.usar), { d } = datosDe(r);
+      const previa = S.plano && S.plano.clase_id == s.clase_id && esMio(S.plano) ? S.plano.datos : null;
+      if (previa) { d.niveles = { ...(previa.niveles || {}) }; d.diversidad = JSON.parse(JSON.stringify(previa.diversidad || {})); d.filasDelante = previa.filasDelante || 2; d.noJuntos = (previa.noJuntos || []).map((p) => [...p]); }
+      try {
+        if (S.claseId != s.clase_id) await elegirClase(s.clase_id);
+        await crear(`Propuesta de ${corto(S.alumnos.get(r.alumno_id) || { nombre: "alumno/a" })}`, d);
+        $("#dlgSon").close(); toast("Copiada como distribución nueva. Ya puedes retocarla.");
+      } catch (e) { fallo(e); }
+    }));
+  }
+  function pestCurso(caja, s) {
+    const sons = [...SON.lista].reverse(), als = S.porClase.get(s.clase_id) || [];
+    const rec = sons.map((x) => analisis(SON.resp.get(x.id) || [], s.clase_id));
+    const filas = als.map((a) => ({ a, v: rec.map((A) => (A.R.size ? A.recibe.get(a.id) : null)) }))
+      .sort((x, y) => (x.v.at(-1) ?? 99) - (y.v.at(-1) ?? 99) || porNombre(x.a, y.a));
+    caja.innerHTML = `<p class="dlg-sub">Elecciones que recibe cada alumno/a en cada sondeo de esta clase, para ver cómo evoluciona el grupo. Repite el sondeo cuando lo veas necesario (por trimestre, después de un conflicto…).</p>
+      <div class="son-tabla-env"><table class="son-tabla"><thead><tr><th>Alumno/a</th>${sons.map((x) => `<th class="num">${esc(x.nombre)}<small>${esc(fechaCorta(x.creado))}</small></th>`).join("")}<th></th></tr></thead><tbody>
+      ${filas.map(({ a, v }) => { const ult = v.at(-1), ant = v.at(-2); return `<tr><td>${esc(nombreLista(a))}</td>${v.map((x) => `<td class="num">${x ?? "—"}</td>`).join("")}<td>${ult === 0 ? `<span class="son-etq av">Sin elecciones</span>` : ult != null && ant != null && ult < ant ? `<span class="son-etq">Baja</span>` : ult != null && ant != null && ult > ant ? `<span class="son-etq ok">Sube</span>` : ""}</td></tr>`; }).join("")}
+      </tbody></table></div>`;
+  }
+
   // ─── Impresión: una hoja A4 con formato corporativo ───────────────────────
   const OPC = () => ({ titulo: "Distribución del aula", orient: "h", fecha: true, tutor: true, profe: true, sinsitio: true, rejilla: false, ...LS.get("aula-imprimir", {}), vista: S.vista, nombre: S.nombre });
   function hoja(o) {
@@ -1508,7 +2024,7 @@
 
   // ─── Teclado ──────────────────────────────────────────────────────────────
   function teclado(e) {
-    if (!S.plano || $("#dlg").open || e.target.closest("input, select, textarea")) return;
+    if (!S.plano || $("#dlg").open || $("#dlgSon").open || e.target.closest("input, select, textarea")) return;
     const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
     if (mod && k === "z") { e.preventDefault(); e.shiftKey ? rehacer() : deshacer(); return; }
     if (mod && k === "y") { e.preventDefault(); rehacer(); return; }
@@ -1605,6 +2121,9 @@
     $("#btnCompartir").onclick = compartir;
     $("#btnEliminar").onclick = eliminar;
     $("#btnImprimir").onclick = imprimir;
+    $("#btnSondeos2").onclick = abrirSondeos;
+    $("#sonCerrarDlg").onclick = () => $("#dlgSon").close();
+    $("#dlgSon").addEventListener("close", () => { if (S.plano) render(); });
     $("#btnDeshacer").onclick = deshacer; $("#btnRehacer").onclick = rehacer;
     $("#btnMas").onclick = () => zoom(0.25); $("#btnMenos").onclick = () => zoom(-0.25); $("#btnAjustar").onclick = () => zoom(0);
     $("#btnVista").onclick = () => { S.vista = S.vista === "docente" ? "alumnado" : "docente"; LS.set("aula-vista", S.vista); render(); };

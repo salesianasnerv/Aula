@@ -509,3 +509,160 @@ dialog::backdrop { background: rgba(15, 23, 32, .45); backdrop-filter: blur(2px)
 .imp-lado p { margin: 0; white-space: pre-wrap; }
 .imp-pie { display: flex; justify-content: space-between; gap: 6mm; font-size: 8pt; color: #64748B; padding-top: 2.5mm; border-top: .3mm solid #E2E8F0; }
 .imp-pie b { color: #009abb; font-weight: 600; }
+
+/* ─── Sondeos del alumnado: ventana del profesorado ─── */
+dialog.dlg-son { width: min(1100px, calc(100vw - 24px)); max-height: calc(100vh - 32px); display: none; flex-direction: column; overflow: hidden; }
+dialog.dlg-son[open] { display: flex; }
+.dlg-son-cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 20px; border-bottom: 1px solid var(--borde); }
+.dlg-son-cab h2 { margin: 0; font-size: 1.15rem; display: flex; align-items: center; gap: 10px; }
+.dlg-son-cab h2::before { content: ""; width: 6px; height: 20px; border-radius: 3px; background: var(--verde); flex: none; }
+.dlg-son-cuerpo { padding: 16px 20px 20px; overflow: auto; }
+.dlg-son-cuerpo h3 { font-size: 14px; margin: 16px 0 6px; }
+.dlg-son-cuerpo p { margin: 0 0 8px; }
+.son-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.son-lista button { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px; text-align: left; padding: 10px 14px; border: 1px solid var(--borde); border-radius: 10px; background: var(--panel); color: var(--texto); cursor: pointer; font: inherit; }
+.son-lista button:hover { border-color: var(--azul); }
+.son-lista small { display: block; color: var(--suave); font-size: 13px; }
+.son-estado { flex: none; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 2px 10px; background: var(--neutro-bg); color: var(--suave); }
+.son-estado.abierto { background: var(--ok-bg); color: var(--ok); }
+.son-form .son-preg { align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--borde); }
+.son-form .son-preg input { margin-top: 3px; }
+.son-form .son-preg small { display: block; color: var(--suave); font-size: 13px; font-weight: 400; }
+.son-disp-op { margin: 0 0 8px 26px; display: grid; gap: 6px; justify-items: start; }
+.son-sel { padding: 6px 10px; border: 1px solid var(--borde); border-radius: 10px; background: var(--panel); color: var(--texto); margin-left: 26px; }
+.son-chk { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-left: 26px; }
+.son-form .dlg-botones { margin: 18px -20px -20px; }
+.son-cab { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.son-qr { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px; align-items: center; padding: 14px; border: 1px solid var(--borde); border-radius: 12px; margin-bottom: 12px; }
+.son-qr-img { width: 170px; height: 170px; background: #fff; border-radius: 10px; padding: 8px; }
+.son-qr-img svg, .son-proy-qr svg { width: 100%; height: 100%; display: block; }
+.son-qr-txt { display: grid; gap: 4px; min-width: 0; }
+.son-et { font-size: 13px; color: var(--suave); }
+.son-codigo-g { font-size: 2.2rem; font-weight: 700; letter-spacing: .12em; color: var(--azul); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.son-codigo-g.gigante { font-size: clamp(3rem, 9vw, 6rem); }
+.son-url { font-weight: 600; word-break: break-all; }
+.son-progreso { display: grid; gap: 6px; margin-bottom: 12px; }
+.son-barra { height: 10px; background: var(--neutro-bg); border-radius: 999px; overflow: hidden; }
+.son-barra i { display: block; height: 100%; background: var(--verde); border-radius: 999px; }
+.son-faltan { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 13px; color: var(--suave); }
+.son-etq { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 999px; padding: 2px 9px; background: var(--neutro-bg); color: var(--suave); }
+.son-etq.ok { background: var(--ok-bg); color: var(--ok); }
+.son-etq.av, .son-faltan .son-etq { background: var(--aviso-bg); color: var(--aviso); }
+.son-pests { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--borde); margin: 6px 0 14px; }
+.son-pests button { border: 0; background: none; padding: 8px 12px; cursor: pointer; font: inherit; font-weight: 600; color: var(--suave); border-bottom: 3px solid transparent; margin-bottom: -1px; }
+.son-pests button[aria-selected="true"] { color: var(--azul); border-bottom-color: var(--azul); }
+.son-cifras { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 8px; }
+.son-cifras > div { border: 1px solid var(--borde); border-radius: 10px; padding: 10px 12px; }
+.son-cifras b { display: block; font-size: 1.5rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.son-cifras span { font-size: 13px; color: var(--suave); }
+.son-cifras .ok b { color: var(--ok); }
+.son-cifras .av b { color: var(--aviso); }
+.son-rej { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.son-socio-op { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; font-size: 13px; color: var(--suave); margin-bottom: 6px; }
+.son-socio { width: 100%; max-width: 580px; height: auto; display: block; margin: 0 auto; }
+.son-socio text { font: 11px "Fira Sans", sans-serif; fill: var(--texto); cursor: pointer; }
+.son-socio text.sin-resp { fill: var(--suave); font-style: italic; }
+.son-socio .nodo { fill: var(--pl-mesa); stroke: var(--pl-mesa-borde); stroke-width: 1.5; cursor: pointer; }
+.son-socio .nodo.sola { stroke: var(--naranja); stroke-width: 3; }
+.son-socio .nodo.sel { fill: var(--azul); }
+.son-socio line { stroke-linecap: round; }
+.son-socio .si { stroke: var(--verde); stroke-width: 1.2; opacity: .55; }
+.son-socio .si.mutua { stroke-width: 3.2; opacity: .9; }
+.son-socio .no { stroke: var(--naranja); stroke-width: 1.6; stroke-dasharray: 5 4; opacity: .85; }
+.son-socio .tenue { opacity: .08; }
+.son-socio .flecha { fill: var(--verde); }
+.son-leyenda { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--suave); margin-top: 6px; }
+.son-leyenda i { display: inline-block; width: 16px; vertical-align: middle; margin-right: 4px; }
+.son-leyenda .l-mutua { border-top: 4px solid var(--verde); }
+.son-leyenda .l-si { border-top: 2px solid var(--verde); opacity: .6; }
+.son-leyenda .l-no { border-top: 2px dashed var(--naranja); }
+.son-leyenda .l-sola { width: 12px; height: 12px; border: 2px solid var(--naranja); border-radius: 50%; }
+.info-caja.aviso { background: var(--aviso-bg); }
+.son-msgs { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.son-msgs li { padding: 8px 12px; border-left: 3px solid var(--azul); background: var(--azul-bg); border-radius: 0 8px 8px 0; font-size: 14px; }
+.son-nota { font-size: 13px; color: var(--suave); }
+.son-tabla-env { overflow-x: auto; }
+.son-tabla { border-collapse: collapse; width: 100%; font-size: 14px; margin: 10px 0; }
+.son-tabla th, .son-tabla td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--borde); vertical-align: top; }
+.son-tabla th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--suave); font-weight: 600; }
+.son-tabla th small { display: block; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.son-tabla .num { text-align: center; font-variant-numeric: tabular-nums; }
+.son-props { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.son-prop { border: 1px solid var(--borde); border-radius: 12px; padding: 10px; display: grid; gap: 8px; justify-items: start; }
+.son-prop-cab { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; width: 100%; }
+.son-prop-cab small { color: var(--suave); }
+.son-prop svg { width: 100%; height: auto; max-height: 340px; background: var(--pl-fondo); border-radius: 8px; }
+dialog.dlg-proy { width: min(1000px, calc(100vw - 24px)); }
+.son-proy { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: center; padding: 10px; font-size: 1.2rem; }
+.son-proy-qr { background: #fff; padding: 12px; border-radius: 12px; aspect-ratio: 1; }
+.son-url-g { font-size: 1.6rem; font-weight: 700; word-break: break-all; color: var(--texto); }
+@media (max-width: 860px) {
+  .son-rej, .son-proy { grid-template-columns: minmax(0, 1fr); }
+  .son-cifras { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .son-qr { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; }
+  dialog.dlg-son { width: 100vw; max-width: 100vw; max-height: 92vh; margin: auto 0 0; border-radius: 16px 16px 0 0; }
+}
+/* Hoja de claves (impresa) */
+.hoja-claves .claves { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 4mm; border-top: .3mm dashed #94A3B8; border-left: .3mm dashed #94A3B8; flex: 1; align-content: start; }
+.clave-t { border-right: .3mm dashed #94A3B8; border-bottom: .3mm dashed #94A3B8; padding: 3mm 3.5mm; display: grid; gap: 1mm; font-size: 9pt; }
+.clave-t b { font-size: 10pt; }
+.clave-t strong { font-size: 14pt; color: #009abb; letter-spacing: .1em; }
+.clave-t small { font-size: 7pt; color: #64748B; }
+
+/* ─── Sondeos del alumnado: página del alumnado (sondeo.html) ─── */
+.pag-sondeo .franja { display: flex; justify-content: space-between; }
+.son-main { max-width: 560px; margin: 0 auto; padding: 20px 16px 8px; padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
+.son-caja { background: var(--panel); border: 1px solid var(--borde); border-radius: 16px; padding: 20px; box-shadow: var(--sombra); display: grid; gap: 12px; min-height: 360px; align-content: start; }
+.son-caja h1 { margin: 0; font-size: 1.35rem; color: var(--verde-tit); line-height: 1.2; text-wrap: balance; }
+.son-caja p { margin: 0; }
+.son-cargando { color: var(--suave); }
+.son-clase { font-size: 13px; color: var(--suave); font-weight: 600; }
+.son-prog { display: flex; gap: 4px; }
+.son-prog i { flex: 1; height: 4px; border-radius: 4px; background: var(--borde); }
+.son-prog i.on { background: var(--azul); }
+.son-codigo-l { font-size: 13px; font-weight: 600; color: var(--suave); }
+.son-codigo { width: 100%; font: 700 1.8rem/1.2 "Fira Sans", sans-serif; letter-spacing: .25em; text-align: center; text-transform: uppercase; padding: 10px; border: 1px solid var(--borde); border-radius: 12px; background: var(--panel); color: var(--texto); }
+.son-codigo:focus { outline: 0; border-color: var(--azul); box-shadow: 0 0 0 3px var(--azul-bg); }
+.son-nombres { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.son-chip { border: 1px solid var(--borde); background: var(--panel); color: var(--texto); border-radius: 10px; padding: 10px 12px; text-align: left; cursor: pointer; font: inherit; font-size: 15px; min-width: 0; overflow-wrap: break-word; }
+.son-chip:hover:not(:disabled) { border-color: var(--azul); }
+.son-chip:focus-visible, .son-puesto:focus-visible { outline: 2px solid var(--azul); outline-offset: 2px; }
+.son-chip small { display: block; font-size: 11px; color: var(--suave); }
+.son-chip:disabled { opacity: .45; cursor: not-allowed; }
+.son-chip.yo[aria-pressed="true"], .son-chip.yo.yo-sel { background: var(--azul-bg); border-color: var(--azul); color: var(--azul); font-weight: 600; }
+.son-chip.si[aria-pressed="true"] { background: var(--ok-bg); border-color: var(--verde); color: var(--ok); font-weight: 600; }
+.son-chip.no[aria-pressed="true"] { background: var(--aviso-bg); border-color: var(--naranja); color: var(--aviso); font-weight: 600; }
+.son-sin .son-chip { font-size: 13px; padding: 7px 9px; }
+.son-sin { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.son-disp { display: grid; gap: 6px; font-size: 13px; color: var(--suave); }
+.son-disp > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.son-disp .son-chip { padding: 6px 10px; font-size: 14px; }
+.son-plano svg { width: 100%; height: auto; display: block; background: var(--pl-fondo); border-radius: 10px; }
+.son-suelo { fill: var(--pl-suelo); stroke: var(--pl-pared); stroke-width: 4; }
+.son-mueble { fill: var(--pl-mueble); stroke: var(--pl-mueble-borde); stroke-width: 2; }
+.son-mueble.pizarra { fill: var(--pl-pizarra); stroke: none; }
+.son-mueble.pantalla { fill: var(--pl-pantalla); stroke: none; }
+.son-mueble.docente { fill: var(--pl-docente); stroke: var(--pl-docente-borde); }
+.son-mueble.ventana { fill: var(--pl-ventana); stroke: none; }
+.son-mueble.puerta { fill: var(--pl-puerta); stroke: none; }
+.son-mtxt { font: 16px "Fira Sans", sans-serif; fill: var(--pl-suave); text-anchor: middle; }
+.son-mesa { fill: var(--pl-mesa-borde); }
+.son-silla { fill: var(--pl-mesa); }
+.son-puesto { cursor: pointer; }
+.son-puesto.ocup .son-silla { fill: var(--pl-ocupado); }
+.son-puesto.mio .son-silla { fill: var(--azul-bg); stroke: var(--azul); stroke-width: 2; }
+.son-puesto:hover .son-silla { stroke: var(--azul); stroke-width: 2; }
+.son-nom { font-family: "Fira Sans", sans-serif; font-weight: 600; fill: var(--pl-texto); text-anchor: middle; pointer-events: none; }
+.son-texto { width: 100%; font: inherit; padding: 10px; border: 1px solid var(--borde); border-radius: 10px; background: var(--panel); color: var(--texto); }
+.son-aviso { font-size: 14px; background: var(--azul-bg); border-radius: 12px; padding: 12px 14px; }
+.son-aviso ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 3px; }
+.son-resumen { margin: 0; display: grid; gap: 4px; }
+.son-resumen dt { font-size: 13px; color: var(--suave); font-weight: 600; margin-top: 6px; }
+.son-resumen dd { margin: 0; }
+.son-pie { display: flex; gap: 8px; margin-top: 8px; }
+.son-pie .btn { flex: 1; min-height: 44px; font-size: 15px; }
+.son-enlace { border: 0; background: none; color: var(--azul); padding: 0; font: inherit; text-decoration: underline; cursor: pointer; }
+.son-demo { text-align: center; font-size: 13px; color: var(--aviso); margin-top: 10px; }
+@media (max-width: 380px) { .son-nombres { grid-template-columns: minmax(0, 1fr); } .son-sin { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

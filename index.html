@@ -71,6 +71,7 @@
           <li><b>Aula:</b> medidas del aula y de las mesas, mesas (individuales, parejas, líneas de 3, en U, grupos) y mobiliario.</li>
           <li><b>De la tutoría:</b> en cada grupo te aparece siempre la distribución de su tutor/a en «Distribución», para verla, imprimirla o copiarla.</li>
           <li><b>Compartir e imprimir:</b> compartir con el claustro, copiar las de otros e imprimir en una hoja A4.</li>
+          <li><b>Sondeos del alumnado:</b> con un QR, el alumnado dice desde el móvil con quién le gustaría sentarse y con quién no, y puede proponer su distribución. Después puedes sentar «Por afinidades».</li>
         </ul>
       </details>
       <details class="info-bloque">
@@ -80,6 +81,7 @@
           <li><b>Tu tutoría:</b> las distribuciones que haces de tu grupo las ve automáticamente el profesorado, marcadas «De la tutoría» (no hace falta compartirlas).</li>
           <li><b>Las del profesorado:</b> ves siempre las distribuciones que hace el profesorado de tu grupo (solo para verlas, imprimirlas o copiarlas), aunque no las compartan.</li>
           <li><b>Hoja de la tutoría:</b> tu nombre aparece como tutor/a en la hoja impresa de la clase.</li>
+          <li><b>Sondeos de tu grupo:</b> ves siempre los sondeos que lanza el profesorado de tu grupo y sus respuestas (nadie más del claustro los ve).</li>
         </ul>
       </details>
       <details class="info-bloque">
@@ -141,6 +143,7 @@
                 <li><b>No deben sentarse juntos</b> (incompatibilidades).</li>
                 <li><b>Nivel competencial</b> (hay que indicarlo antes).</li>
                 <li><b>Atención a la diversidad</b> (ubicación cercana al docente, problemas de visión u otros).</li>
+                <li><b>Sondeos del alumnado</b>: el alumnado dice desde el móvil, con un QR y sin cuenta, con quién le gustaría sentarse y con quién no, y puede proponer su distribución. Solo lo ven quien lanza el sondeo y el tutor/a.</li>
               </ul>
             </li>
           </ol>
@@ -170,6 +173,7 @@
                 <li><b>Al azar.</b></li>
                 <li><b>Por niveles</b> (hay que indicar antes los niveles).</li>
                 <li><b>Equilibrado</b> (también con los niveles indicados).</li>
+                <li><b>Por afinidades</b> (con las respuestas del último sondeo del alumnado).</li>
               </ul>
             </li>
             <li><b>Levantar a todos</b>, para empezar de nuevo.</li>
@@ -198,6 +202,7 @@
         <div class="grupo-btn">
           <button class="btn primario" id="btnNuevo" type="button">+ Nueva</button>
           <button class="btn" id="btnDuplicar" type="button">Duplicar</button>
+          <button class="btn" id="btnSondeos2" type="button" title="Preguntar al alumnado con quién le gustaría sentarse">Sondeos</button>
           <button class="btn" id="btnRenombrar" type="button">Cambiar nombre</button>
           <button class="btn peligro" id="btnEliminar" type="button">Eliminar</button>
         </div>
@@ -229,6 +234,10 @@
             <button class="tener-btn" id="btnDiversidad" type="button">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2.5"/><path d="M12 8v6M7 10h10M9 21l3-7 3 7"/></svg>
               <span>Atención a la diversidad<small id="resDiversidad"></small></span>
+            </button>
+            <button class="tener-btn" id="btnSondeos" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 6h4M9 11l2 2 4-4M9 17h6"/></svg>
+              <span>Sondeos del alumnado<small id="resSondeos"></small></span>
             </button>
             <label class="check ver-niveles" id="verNivelesCaja" hidden><input type="checkbox" id="verNiveles"> Ver los niveles en el plano</label>
           </section>
@@ -293,8 +302,10 @@
                 <button class="btn mini" id="btnAzar" type="button" title="Respeta a quien está fijado y las parejas que no deben coincidir">Al azar</button>
                 <span class="con-info"><button class="btn mini" id="btnPorNivel" type="button">Por niveles</button><button class="info-i" type="button" data-info="infoPorNivel" aria-expanded="false" aria-label="Qué significa «Por niveles»">i</button></span>
                 <span class="con-info"><button class="btn mini" id="btnEquilibrado" type="button">Equilibrado</button><button class="info-i" type="button" data-info="infoEquilibrado" aria-expanded="false" aria-label="Qué significa «Equilibrado»">i</button></span>
+                <span class="con-info"><button class="btn mini" id="btnAfinidades" type="button">Por afinidades</button><button class="info-i" type="button" data-info="infoAfinidades" aria-expanded="false" aria-label="Qué significa «Por afinidades»">i</button></span>
               </div>
               <p class="info-caja" id="infoPorNivel" hidden><b>Por niveles:</b> cada mesa tiene alumnado del mismo nivel. Los niveles bajos se sientan delante, cerca del docente.</p>
+              <p class="info-caja" id="infoAfinidades" hidden><b>Por afinidades:</b> usa el último sondeo del alumnado de esta clase. Intenta que cada alumno/a tenga cerca a alguien que eligió y que nadie quede junto a quien no quiere. Respeta a quien está fijado, «No deben sentarse juntos» y las primeras filas de atención a la diversidad.</p>
               <p class="info-caja" id="infoEquilibrado" hidden><b>Equilibrado:</b> cada mesa compensa niveles. En parejas se une Alto con Medio bajo y Medio alto con Bajo. En grupos, cada grupo mezcla alumnado de todos los niveles (en grupos de 4, uno de cada nivel).</p>
               <div class="grupo-btn">
                 <button class="btn mini" id="btnLevantar" type="button">Levantar a todos</button>
@@ -356,12 +367,20 @@
   <div id="impresion"></div>
 
   <dialog id="dlg"><form method="dialog" id="dlgForm"></form></dialog>
+  <!-- Sondeos del alumnado: ventana grande, con su confirmación y el QR para proyectar -->
+  <dialog id="dlgSon" class="dlg-son" aria-labelledby="sonTitulo">
+    <div class="dlg-son-cab"><h2 id="sonTitulo">Sondeos del alumnado</h2><button class="btn mini" type="button" id="sonCerrarDlg" aria-label="Cerrar">✕</button></div>
+    <div class="dlg-son-cuerpo" id="sonCuerpo"></div>
+  </dialog>
+  <dialog id="dlgSonConf"><form method="dialog" id="dlgSonConfForm"></form></dialog>
+  <dialog id="dlgSonProy" class="dlg-proy"><form method="dialog" id="dlgSonProyCuerpo"></form></dialog>
   <div class="toasts" id="toasts" aria-live="polite"></div>
 
   <script src="config.js"></script>
   <script src="data/demo-data.js" onerror="window.DEMO_DATA=null"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="teams.js"></script>
+  <script src="qrcode.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

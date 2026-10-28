@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sondeo de clase | Escuelas Salesianas María Auxiliadora · Nervión (Sevilla)</title>
+  <meta name="description" content="Sondeo de clase para organizar el aula.">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#b4be00">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <!-- Página del alumnado: sin inicio de sesión y sin la barra «Volver al portal» -->
+</head>
+<body class="pag-sondeo">
+  <header class="top">
+    <img class="logo" src="logo.svg" alt="Salesianas Nervión">
+  </header>
+  <div class="franja"><span class="quien" data-curso>Curso 2026-2027</span><span class="quien">Sondeo de clase</span></div>
+  <script>/* Curso escolar: cambia solo cada 1 de septiembre */document.querySelectorAll("[data-curso]").forEach(function(e){var d=new Date(),y=d.getFullYear()-(d.getMonth()<8?1:0);e.textContent="Curso "+y+"-"+(y+1);});</script>
+
+  <main class="son-main">
+    <div class="son-caja" id="son" aria-live="polite"><p class="son-cargando">Cargando…</p></div>
+    <p class="son-demo" id="sonDemo" hidden>Modo prueba: alumnado ficticio. No se envía nada al colegio.</p>
+  </main>
+
+  <footer class="pie">Escuelas Salesianas María Auxiliadora · Nervión (Sevilla)</footer>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="sondeo.js"></script>
+</body>
+</html>
