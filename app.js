@@ -99,6 +99,11 @@
   };
   const T = { ...MESAS, ...MUEBLES };
   const tam = (it) => ({ w: it.w ?? T[it.t].w, h: it.h ?? T[it.t].h });
+  // Mitad del ancho y del fondo que ocupa un mueble en el plano, contando su giro
+  const caja = (it) => {
+    const { w, h } = tam(it), g = ((it.r || 0) * Math.PI) / 180, c = Math.abs(Math.cos(g)), n = Math.abs(Math.sin(g));
+    return { hw: (w * c + h * n) / 2, hh: (w * n + h * c) / 2 };
+  };
 
   // Posición en el aula de un punto de la mesa (la mesa puede estar girada)
   function aMundo(it, lx, ly) {
@@ -808,13 +813,29 @@
     $("#btnPorNivel").disabled = $("#btnEquilibrado").disabled = !nn;
     $("#btnPorNivel").title = $("#btnEquilibrado").title = nn ? "" : "Indica antes el nivel competencial (A tener en cuenta)";
     $("#verNivelesCaja").hidden = !nn; $("#verNiveles").checked = S.verNiveles;
-    $("#selNombre").value = S.nombre;
+    $("#selNombre").value = S.nombre; $("#selNombre2").value = S.nombre;
     $("#inAncho").value = d.ancho / 100; $("#inFondo").value = d.fondo / 100;
     $("#inMesaAncho").value = MESA.w; $("#inMesaFondo").value = MESA.h;
     $("#ayudaAlumnado").hidden = S.modo !== "alumnado" || !editable(); $("#ayudaAula").hidden = S.modo !== "aula" || !editable();
     pintarPlantillasPanel();
     pintarProps();
   }
+  // Iconos de alinear y distribuir, como los de Word
+  const icoAl = (c) => `<svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">${c}</svg>`;
+  const lin = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="currentColor" stroke-width="1.5"/>`;
+  const bar = (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1" fill="currentColor"/>`;
+  const ALINEAR = [
+    ["alIzq", "Alinear a la izquierda", icoAl(lin(3, 2, 3, 18) + bar(5, 5, 12, 4) + bar(5, 11, 7, 4))],
+    ["alV", "Centrar horizontalmente", icoAl(lin(10, 2, 10, 18) + bar(4, 5, 12, 4) + bar(6.5, 11, 7, 4))],
+    ["alDer", "Alinear a la derecha", icoAl(lin(17, 2, 17, 18) + bar(3, 5, 12, 4) + bar(8, 11, 7, 4))],
+    ["alArr", "Alinear arriba", icoAl(lin(2, 3, 18, 3) + bar(5, 5, 4, 12) + bar(11, 5, 4, 7))],
+    ["alH", "Centrar verticalmente", icoAl(lin(2, 10, 18, 10) + bar(5, 4, 4, 12) + bar(11, 6.5, 4, 7))],
+    ["alAba", "Alinear abajo", icoAl(lin(2, 17, 18, 17) + bar(5, 3, 4, 12) + bar(11, 8, 4, 7))],
+  ];
+  const DISTRIBUIR = [
+    ["repH", "Distribuir horizontalmente", icoAl(lin(1.5, 2, 1.5, 18) + lin(18.5, 2, 18.5, 18) + bar(4, 6, 3, 8) + bar(8.5, 4, 3, 12) + bar(13, 7, 3, 6))],
+    ["repV", "Distribuir verticalmente", icoAl(lin(2, 1.5, 18, 1.5) + lin(2, 18.5, 18, 18.5) + bar(6, 4, 8, 3) + bar(4, 8.5, 12, 3) + bar(7, 13, 6, 3))],
+  ];
   function pintarProps() {
     const el = $("#props"), its = D().items.filter((i) => S.sel.has(i.id));
     if (S.modo !== "aula" || !its.length) { el.innerHTML = ""; return; }
@@ -830,8 +851,10 @@
         (it.t === "texto" ? `<label class="campo">Texto <input data-prop="texto" value="${esc(it.texto || "")}" placeholder="Escribe el rótulo"></label>` : "") + fin;
     } else {
       el.innerHTML = `<h3>${its.length} elementos seleccionados</h3>${giros}
-        <div class="grupo-btn"><button class="btn mini" data-acc="alH" type="button">Alinear en fila</button><button class="btn mini" data-acc="alV" type="button">Alinear en columna</button></div>
-        <div class="grupo-btn"><button class="btn mini" data-acc="repH" type="button">Repartir ↔</button><button class="btn mini" data-acc="repV" type="button">Repartir ↕</button></div>
+        <p class="props-t">Alinear</p>
+        <div class="grupo-btn iconos">${ALINEAR.map(([acc, t, svg]) => `<button class="btn mini ico" data-acc="${acc}" type="button" title="${t}" aria-label="${t}">${svg}</button>`).join("")}</div>
+        <p class="props-t">Distribuir uniformemente${its.length < 3 ? " <small>(elige 3 o más)</small>" : ""}</p>
+        <div class="grupo-btn iconos">${DISTRIBUIR.map(([acc, t, svg]) => `<button class="btn mini ico" data-acc="${acc}" type="button" title="${t}" aria-label="${t}"${its.length < 3 ? " disabled" : ""}>${svg}</button>`).join("")}</div>
         ${its.some((i) => T[i.t].p?.length > 1) ? `<div class="grupo-btn"><button class="btn mini" data-acc="sep" type="button">Separar en individuales</button></div>` : ""}${fin}`;
     }
   }
@@ -897,13 +920,25 @@
         break;
       }
       case "del": if (cambio((d) => (d.items = d.items.filter((i) => !ids.has(i.id))))) { S.sel.clear(); render(); } break;
-      case "alH": cambio(() => { const s = sel(), y = ajusta(s.reduce((m, i) => m + i.y, 0) / s.length); s.forEach((i) => (i.y = y)); }); break;
-      case "alV": cambio(() => { const s = sel(), x = ajusta(s.reduce((m, i) => m + i.x, 0) / s.length); s.forEach((i) => (i.x = x)); }); break;
+      case "alH": cambio(() => { const s = sel(), y = r1(s.reduce((m, i) => m + i.y, 0) / s.length); s.forEach((i) => (i.y = y)); }); break;
+      case "alV": cambio(() => { const s = sel(), x = r1(s.reduce((m, i) => m + i.x, 0) / s.length); s.forEach((i) => (i.x = x)); }); break;
+      // Izquierda, derecha, arriba y abajo tal como se ven en pantalla (en la vista del docente el plano está girado)
+      case "alIzq": case "alDer": case "alArr": case "alAba": cambio(() => {
+        const s = sel(), e = a === "alIzq" || a === "alDer" ? "x" : "y", m = e === "x" ? "hw" : "hh";
+        const min = (a === "alIzq" || a === "alArr") !== (S.vista === "docente");
+        const borde = (i) => i[e] + (min ? -1 : 1) * caja(i)[m];
+        const obj = min ? Math.min(...s.map(borde)) : Math.max(...s.map(borde));
+        s.forEach((i) => (i[e] = r1(obj - (min ? -1 : 1) * caja(i)[m])));
+      }); break;
+      // Mismo hueco entre cada mueble y el siguiente; los de los extremos no se mueven
       case "repH": case "repV": cambio(() => {
-        const e = a === "repH" ? "x" : "y", s = sel().sort((p, q) => p[e] - q[e]);
+        const e = a === "repH" ? "x" : "y", m = e === "x" ? "hw" : "hh", s = sel().sort((p, q) => p[e] - q[e]);
         if (s.length < 3) return;
-        const a0 = s[0][e], paso = (s[s.length - 1][e] - a0) / (s.length - 1);
-        s.forEach((i, n) => (i[e] = ajusta(a0 + n * paso)));
+        const t = s.map((i) => caja(i)[m]), ini = s[0][e] - t[0], fin = s[s.length - 1][e] + t[t.length - 1];
+        const hueco = (fin - ini - 2 * t.reduce((a, b) => a + b, 0)) / (s.length - 1);
+        if (hueco < 0) { const a0 = s[0][e], paso = (s[s.length - 1][e] - a0) / (s.length - 1); s.forEach((i, n) => (i[e] = r1(a0 + n * paso))); return; }
+        let pos = ini;
+        s.forEach((i, n) => { i[e] = r1(pos + t[n]); pos += 2 * t[n] + hueco; });
       }); break;
     }
   }
@@ -1036,7 +1071,10 @@
     $("#instrSig").onclick = () => verPant(pant + 1);
     verPant(1);
     // Qué se hace al tocar el plano: sentar al alumnado o mover mesas y mobiliario
-    $$(".seg [data-modo]").forEach((b) => (b.onclick = () => { S.modo = b.dataset.modo; S.alSel = null; render(); }));
+    // Un solo botón: activa mover mesas y, al pulsarlo otra vez, vuelve a sentar al alumnado
+    // Usar cualquier botón de «Sentar alumnado» (paso 5) vuelve a sentar al alumnado
+    $("#cajaSentar").addEventListener("click", (e) => { if (e.target.closest("button.btn") && S.modo !== "alumnado") { S.modo = "alumnado"; S.sel.clear(); render(); } }, true);
+    $$(".seg [data-modo]").forEach((b) => (b.onclick = () => { S.modo = S.modo === b.dataset.modo ? "alumnado" : b.dataset.modo; S.alSel = null; S.sel.clear(); render(); }));
     const listas = $("#panelAlumnado");
     listas.addEventListener("pointerdown", (e) => {
       const chip = e.target.closest(".al[data-al]");
@@ -1081,7 +1119,9 @@
       if (!Object.keys(D().asientos).length) return;
       if (await confirmar("¿Levantar a todos?", "Todo el alumnado queda sin sitio (también quien estaba fijado). Se puede deshacer.", "Levantar a todos")) cambio((d) => { d.asientos = {}; d.fijos = []; });
     };
-    $("#selNombre").onchange = (e) => { S.nombre = e.target.value; LS.set("aula-nombre", S.nombre); render(); };
+    // «Nombre que se ve» está en el alumnado (paso 2) y en «Sentar alumnado» (paso 5); los dos van a la par
+    $("#selNombre2").innerHTML = $("#selNombre").innerHTML;
+    $$("#selNombre, #selNombre2").forEach((el) => (el.onchange = (e) => { S.nombre = e.target.value; LS.set("aula-nombre", S.nombre); render(); }));
     $("#btnNoJuntos").onclick = noJuntos;
     $("#btnSondeos").onclick = abrirSondeos;
     $("#btnAfinidades").onclick = porAfinidades;

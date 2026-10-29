@@ -666,3 +666,12 @@ dialog.dlg-proy { width: min(1000px, calc(100vw - 24px)); }
 .son-enlace { border: 0; background: none; color: var(--azul); padding: 0; font: inherit; text-decoration: underline; cursor: pointer; }
 .son-demo { text-align: center; font-size: 13px; color: var(--aviso); margin-top: 10px; }
 @media (max-width: 380px) { .son-nombres { grid-template-columns: minmax(0, 1fr); } .son-sin { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Alinear y distribuir (varias mesas seleccionadas) */
+.props .props-t { font-size: 12px; font-weight: 600; color: var(--suave); margin: 10px 0 0; }
+.props .props-t small { font-weight: 400; }
+.props .iconos { gap: 4px; }
+.btn.mini.ico { padding: 4px 6px; min-width: 34px; justify-content: center; }
+.btn.mini.ico svg { display: block; }
+.campo-linea { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--suave); }
+.campo-linea select { width: auto; min-height: 32px; padding: 4px 8px; font-size: 13px; }

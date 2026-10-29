@@ -124,7 +124,7 @@
       <!-- Instrucciones: desplegable, una pantalla por paso -->
       <details class="caja-herr desplegable instrucciones" id="detInstr">
         <summary>Instrucciones <small>Cómo se usa, paso a paso</small></summary>
-        <nav class="instr-nav" aria-label="Pasos"><button type="button" data-ir="1" class="activa"><span class="num-paso">1</span>Distribución</button><button type="button" data-ir="2"><span class="num-paso">2</span>Alumnado</button><button type="button" data-ir="3"><span class="num-paso">3</span>Aula</button><button type="button" data-ir="4"><span class="num-paso">4</span>Distribución de mesas</button><button type="button" data-ir="5"><span class="num-paso">5</span>Sentar</button><button type="button" data-ir="6"><span class="num-paso">6</span>Revisar</button><button type="button" data-ir="7"><span class="num-paso">7</span>Imprimir o compartir</button></nav>
+        <nav class="instr-nav" aria-label="Pasos"><button type="button" data-ir="1" class="activa"><span class="num-paso">1</span>Distribución</button><button type="button" data-ir="2"><span class="num-paso">2</span>Alumnado</button><button type="button" data-ir="3"><span class="num-paso">3</span>Aula</button><button type="button" data-ir="4"><span class="num-paso">4</span>Distribución de mesas</button><button type="button" data-ir="5"><span class="num-paso">5</span>Sentar alumnado</button><button type="button" data-ir="6"><span class="num-paso">6</span>Revisar</button><button type="button" data-ir="7"><span class="num-paso">7</span>Imprimir o compartir</button></nav>
         <div class="instr-cuerpo">
           <div class="instr-pant" data-pant="1">
             <h3><span class="num-paso">1</span>Distribución</h3>
@@ -165,7 +165,7 @@
           </ol>
           </div>
           <div class="instr-pant" data-pant="5" hidden>
-            <h3><span class="num-paso">5</span>Sentar</h3>
+            <h3><span class="num-paso">5</span>Sentar alumnado</h3>
             <ol>
             <li>Sienta al alumnado:
               <ul>
@@ -295,7 +295,7 @@
             <div class="paleta paleta-mesas" id="paletaMesas"></div>
           </details>
           <section class="caja-herr" id="cajaSentar">
-            <h3><span class="num-paso" aria-label="Paso 5">5</span>Sentar</h3>
+            <h3><span class="num-paso" aria-label="Paso 5">5</span>Sentar alumnado</h3>
             <div class="sentar-fila">
               <div class="grupo-btn">
                 <button class="btn mini" id="btnOrden" type="button" title="Por orden de lista, de delante hacia atrás">Por lista</button>
@@ -311,6 +311,9 @@
                 <button class="btn mini" id="btnLevantar" type="button">Levantar a todos</button>
                 <button class="btn mini" id="btnOtraClase" type="button">Añadir de otra clase…</button>
               </div>
+              <label class="campo-linea">Nombre que se ve
+                <select id="selNombre2" aria-label="Nombre que se ve en el plano"></select>
+              </label>
             </div>
           </section>
           <div class="lienzo-wrap">
@@ -320,8 +323,7 @@
                 <span class="num-paso" aria-label="Paso 6">6</span>
                 <div class="barra-fila">
                   <span class="seg" role="group" aria-label="Qué se hace al tocar el plano">
-                    <button data-modo="alumnado" class="activa" type="button" aria-pressed="true">Sentar alumnado</button>
-                    <button data-modo="aula" type="button" aria-pressed="false">Mover mesas y mobiliario</button>
+                    <button data-modo="aula" type="button" aria-pressed="false" title="Púlsalo otra vez para volver a sentar al alumnado">Mover mesas y mobiliario</button>
                   </span>
                   <span class="pild" role="group" aria-label="Deshacer y rehacer">
                     <button id="btnDeshacer" type="button" title="Deshacer (Ctrl+Z)" aria-label="Deshacer">↶</button>
@@ -351,7 +353,7 @@
             <div class="lienzo-info"><span class="tag-tut etq-plano" id="etqTutoria" hidden></span><span class="puestos" id="puestos"></span></div>
             <!-- Cómo se usa el plano en cada modo -->
             <p class="ayuda ayuda-plano" id="ayudaAlumnado">Arrastra cada nombre a una mesa, o tócalo y después toca la mesa. Entre dos mesas se cambian de sitio; a la lista, quedan sin sitio.</p>
-            <p class="ayuda ayuda-plano" id="ayudaAula" hidden>Arrastra para mover. Para girar libremente, arrastra el círculo <b>↻</b> que aparece encima de lo seleccionado. Con Mayús, o arrastrando en una zona vacía, seleccionas varios. Teclas: <kbd>R</kbd> girar, <kbd>Supr</kbd> eliminar, flechas para ajustar, <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicar, <kbd>Ctrl</kbd>+<kbd>Z</kbd> deshacer.</p>
+            <p class="ayuda ayuda-plano" id="ayudaAula" hidden>Arrastra para mover. Para girar libremente, arrastra el círculo <b>↻</b> que aparece encima de lo seleccionado. Con Mayús, o arrastrando en una zona vacía, seleccionas varios y puedes alinearlos (izquierda, derecha, arriba, abajo o centrados) o distribuirlos con el mismo espacio. Teclas: <kbd>R</kbd> girar, <kbd>Supr</kbd> eliminar, flechas para ajustar, <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicar, <kbd>Ctrl</kbd>+<kbd>Z</kbd> deshacer.</p>
             <div class="lienzo" id="lienzo"><svg id="plano" xmlns="http://www.w3.org/2000/svg"></svg></div>
             <!-- Lo seleccionado en el plano: recuadro encima del plano, a la derecha -->
             <div id="props" class="props"></div>
